@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "51094765462",
+    "project_id": "atlas-1e8f0",
+    "storage_bucket": "atlas-1e8f0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:51094765462:android:e1a10655beec971e20e7b7",
+        "android_client_info": {
+          "package_name": "tm.com.atlas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvF2zBHJtuCd15sUGJsEouQQDpAHuxhZc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
