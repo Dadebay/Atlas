@@ -516,6 +516,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     fit: BoxFit.cover,
                     width: double.infinity,
                     height: double.infinity,
+                    memCacheWidth: (MediaQuery.of(context).size.width *
+                            MediaQuery.of(context).devicePixelRatio)
+                        .round(),
                     placeholder: (_, __) => const Center(
                       child: CircularProgressIndicator(
                           color: _kGreen, strokeWidth: 2.5),

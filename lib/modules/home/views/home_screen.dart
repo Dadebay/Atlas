@@ -29,7 +29,7 @@ class HomeScreen extends GetView<HomeController> {
     Get.find<CartController>();
     Get.find<MainController>();
     final categoryCtrl = Get.find<CategoryController>();
-    final brandsController = Get.put(BrandsController());
+    final brandsController = Get.isRegistered<BrandsController>() ? Get.find<BrandsController>() : Get.put(BrandsController());
     // 2.3 kart görünür: 2 tam + 3. kartın peek'i
     final cardWidth = (MediaQuery.of(context).size.width - 24) / 2.15;
 
@@ -76,6 +76,7 @@ class HomeScreen extends GetView<HomeController> {
         strokeWidth: 3.0,
         displacement: 60,
         child: SingleChildScrollView(
+          controller: controller.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,6 +120,7 @@ class HomeScreen extends GetView<HomeController> {
                     SizedBox(
                       height: 258,
                       child: ListView.builder(
+                        primary: false,
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         itemCount: controller.discountProducts.length,
@@ -189,6 +191,7 @@ class HomeScreen extends GetView<HomeController> {
                     SizedBox(
                       height: 258,
                       child: ListView.builder(
+                        primary: false,
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         itemCount: controller.newProducts.length,
@@ -250,6 +253,7 @@ class HomeScreen extends GetView<HomeController> {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: GridView.builder(
+                    primary: false,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: remaining.length,
@@ -286,6 +290,25 @@ class HomeScreen extends GetView<HomeController> {
                   ),
                 );
               }),
+              // ─── Infinite-scroll footer loader ─────────────────────────
+              Obx(() {
+                if (!controller.isLoadingMoreAll.value) {
+                  return const SizedBox.shrink();
+                }
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: SizedBox(
+                      width: 26,
+                      height: 26,
+                      child: CircularProgressIndicator(
+                        color: AppColors.green,
+                        strokeWidth: 2.5,
+                      ),
+                    ),
+                  ),
+                );
+              }),
               const SizedBox(height: 40),
             ],
           ),
@@ -318,6 +341,7 @@ class HomeScreen extends GetView<HomeController> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: GridView.builder(
+                primary: false,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: 8,
@@ -373,6 +397,7 @@ class HomeScreen extends GetView<HomeController> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: GridView.builder(
+              primary: false,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: cats.length,
@@ -414,6 +439,8 @@ class HomeScreen extends GetView<HomeController> {
                 : CachedNetworkImage(
                     imageUrl: imgUrl,
                     fit: BoxFit.contain,
+                    memCacheWidth: 210,
+                    memCacheHeight: 210,
                     errorWidget: (_, __, ___) => const Icon(
                       Icons.category_outlined,
                       color: AppColors.green,

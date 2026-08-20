@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:atlas/core/services/api_constants.dart';
 import 'package:atlas/core/services/call_api.dart';
@@ -17,6 +18,14 @@ class HomeController extends GetxController {
   var isLoadingNew = false.obs;
   var isLoadingAll = false.obs;
 
+  // ── "all products" pagination — infinite scroll on the home page ───────
+  final scrollController = ScrollController();
+  static const int _allProductsPageSize = 20;
+  int _allProductsPage = 1;
+  int _allProductsTotal = 0;
+  var isLoadingMoreAll = false.obs;
+  var hasMoreAllProducts = true.obs;
+
   @override
   void onInit() {
     super.onInit();
@@ -24,6 +33,27 @@ class HomeController extends GetxController {
     fetchDiscountProducts();
     fetchNewProducts();
     fetchAllProducts();
+    scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void onClose() {
+    scrollController.removeListener(_onScroll);
+    scrollController.dispose();
+    super.onClose();
+  }
+
+  void _onScroll() {
+    if (!scrollController.hasClients) return;
+    final position = scrollController.position;
+    print('[Scroll] pixels=${position.pixels} maxScrollExtent=${position.maxScrollExtent} '
+        'nearBottom=${position.pixels >= position.maxScrollExtent - 400} '
+        'isLoadingMoreAll=${isLoadingMoreAll.value} isLoadingAll=${isLoadingAll.value} '
+        'hasMoreAllProducts=${hasMoreAllProducts.value} page=$_allProductsPage '
+        'loaded=${allProducts.length} total=$_allProductsTotal');
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      fetchMoreAllProducts();
+    }
   }
 
   Future<void> fetchHeroSlides() async {
@@ -95,20 +125,70 @@ class HomeController extends GetxController {
 
   Future<void> fetchAllProducts() async {
     isLoadingAll.value = true;
+    _allProductsPage = 1;
+    hasMoreAllProducts.value = true;
     try {
-      final response = await _api.getData('products/all?page=1&size=20');
+      final response =
+          await _api.getData('products/all?page=$_allProductsPage&size=$_allProductsPageSize');
       print('[AllProducts] status: ${response.statusCode}');
       print('[AllProducts] body: ${response.body}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final items = body['data']['items'] as List? ?? [];
+        _allProductsTotal = (body['data']['total'] as num?)?.toInt() ?? items.length;
         final lang = Get.locale?.languageCode ?? 'tk';
         allProducts.value = items
             .map((e) => _toProductMap(e as Map<String, dynamic>, lang))
             .toList();
+        _allProductsPage++;
+        hasMoreAllProducts.value = allProducts.length < _allProductsTotal;
       }
     } catch (_) {}
     isLoadingAll.value = false;
+  }
+
+  // Appends the next page of "all products" — triggered when the home
+  // page's main scroll nears the bottom.
+  Future<void> fetchMoreAllProducts() async {
+    if (isLoadingMoreAll.value || isLoadingAll.value || !hasMoreAllProducts.value) {
+      print('[MoreProducts] skipped: isLoadingMoreAll=${isLoadingMoreAll.value} '
+          'isLoadingAll=${isLoadingAll.value} hasMoreAllProducts=${hasMoreAllProducts.value}');
+      return;
+    }
+    print('[MoreProducts] fetching page=$_allProductsPage size=$_allProductsPageSize '
+        'currentlyLoaded=${allProducts.length} total=$_allProductsTotal');
+    isLoadingMoreAll.value = true;
+    try {
+      final url = 'products/all?page=$_allProductsPage&size=$_allProductsPageSize';
+      final response = await _api.getData(url);
+      print('[MoreProducts] GET $url -> status=${response.statusCode}');
+      print('[MoreProducts] body: ${response.body}');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        final items = body['data']['items'] as List? ?? [];
+        _allProductsTotal = (body['data']['total'] as num?)?.toInt() ?? _allProductsTotal;
+        final lang = Get.locale?.languageCode ?? 'tk';
+        final fetched = items
+            .map((e) => _toProductMap(e as Map<String, dynamic>, lang))
+            .toList();
+        for (final p in fetched) {
+          print('[MoreProducts] item id=${p['id']} title=${p['title']} price=${p['price']} '
+              'oldPrice=${p['oldPrice']} discount=${p['discount']} category=${p['categoryName']} '
+              'brand=${p['brandName']} imageUrl=${p['imageUrl']}');
+        }
+        allProducts.addAll(fetched);
+        _allProductsPage++;
+        hasMoreAllProducts.value = allProducts.length < _allProductsTotal;
+        print('[MoreProducts] fetched=${fetched.length} totalLoaded=${allProducts.length} '
+            'total=$_allProductsTotal hasMore=${hasMoreAllProducts.value} nextPage=$_allProductsPage');
+      } else {
+        print('[MoreProducts] non-200 response, aborting page increment');
+      }
+    } catch (e, st) {
+      print('[MoreProducts] ERROR: $e');
+      print(st);
+    }
+    isLoadingMoreAll.value = false;
   }
 
   Future<void> refreshData() async {

@@ -11,7 +11,9 @@ class MyOrdersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = Get.put(OrderController());
+    final ctrl = Get.isRegistered<OrderController>()
+        ? Get.find<OrderController>()
+        : Get.put(OrderController());
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),

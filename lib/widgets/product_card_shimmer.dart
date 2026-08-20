@@ -375,6 +375,7 @@ class _ProductCardShimmerGridState extends State<ProductCardShimmerGrid>
       builder: (_, __) {
         final g = _buildGradient(_ctrl.value);
         return GridView.builder(
+          primary: false,
           padding: widget.gridPadding,
           physics: const NeverScrollableScrollPhysics(),
           shrinkWrap: true,

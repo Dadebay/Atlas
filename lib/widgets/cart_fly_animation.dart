@@ -137,7 +137,7 @@ class _FlyingItemState extends State<_FlyingItem>
           ),
         );
       },
-      child: widget.child,
+      child: RepaintBoundary(child: widget.child),
     );
   }
 }

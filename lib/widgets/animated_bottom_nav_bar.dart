@@ -2,6 +2,7 @@
 
 import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 
 /// One tab's icon, label, and optional badge count (e.g. cart item count).
@@ -10,12 +11,18 @@ class NavBarItemData {
     required this.icon,
     required this.label,
     this.badgeCount = 0,
+    this.badgeCountGetter,
     this.iconKey,
   });
 
   final IconData icon;
   final String label;
   final int badgeCount;
+
+  /// When set, the badge is wrapped in its own [Obx] reading this getter, so
+  /// a reactive change (e.g. cart item count) only repaints the small badge
+  /// instead of forcing the whole nav bar (all tabs) to rebuild.
+  final int Function()? badgeCountGetter;
 
   /// Attach a [GlobalKey] to this tab's icon so its screen position can be
   /// resolved later (e.g. as the landing spot for a "fly to cart" animation).
@@ -81,7 +88,7 @@ class AnimatedBottomNavBar extends StatelessWidget {
                       // animation every time it lands on a new tab, on top of
                       // the slide overshooting past its target and settling
                       // back — that combination is what reads as a bounce.
-                      child: _Pill(key: ValueKey(currentIndex)),
+                      child: RepaintBoundary(child: _Pill(key: ValueKey(currentIndex))),
                     ),
                     Row(
                       children: [
@@ -115,13 +122,12 @@ class _Pill extends StatelessWidget {
       tween: Tween(begin: 0.85, end: 1),
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutBack,
-      builder: (context, scale, child) =>
-          Transform.scale(scale: scale, child: child),
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
           color: AppColors.green,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: AppColors.green.withOpacity(0.16),
@@ -156,28 +162,38 @@ class _NavItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                key: data.iconKey,
-                child: TweenAnimationBuilder<double>(
-                  key: ValueKey(active),
-                  tween: Tween(begin: active ? 0.7 : 1, end: 1),
-                  duration: const Duration(milliseconds: 380),
-                  curve: Curves.elasticOut,
-                  builder: (context, scale, child) =>
-                      Transform.scale(scale: scale, child: child),
-                  child: HugeIcon(icon: data.icon, color: color, size: 22),
+          RepaintBoundary(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  key: data.iconKey,
+                  child: TweenAnimationBuilder<double>(
+                    key: ValueKey(active),
+                    tween: Tween(begin: active ? 0.7 : 1, end: 1),
+                    duration: const Duration(milliseconds: 380),
+                    curve: Curves.elasticOut,
+                    builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+                    child: HugeIcon(icon: data.icon, color: color, size: 22),
+                  ),
                 ),
-              ),
-              if (data.badgeCount > 0)
-                Positioned(
-                  right: -8,
-                  top: -6,
-                  child: _Badge(count: data.badgeCount),
-                ),
-            ],
+                if (data.badgeCountGetter != null)
+                  Positioned(
+                    right: -8,
+                    top: -6,
+                    child: Obx(() {
+                      final count = data.badgeCountGetter!();
+                      return count > 0 ? _Badge(count: count) : const SizedBox.shrink();
+                    }),
+                  )
+                else if (data.badgeCount > 0)
+                  Positioned(
+                    right: -8,
+                    top: -6,
+                    child: _Badge(count: data.badgeCount),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(height: 4),
           AnimatedDefaultTextStyle(
@@ -213,8 +229,7 @@ class _Badge extends StatelessWidget {
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 300),
       curve: Curves.elasticOut,
-      builder: (context, scale, child) =>
-          Transform.scale(scale: scale, child: child),
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
         constraints: const BoxConstraints(minWidth: 16),

@@ -184,6 +184,8 @@ class CartScreen extends GetView<CartController> {
                     : CachedNetworkImage(
                         imageUrl: image.toString(),
                         fit: BoxFit.contain,
+                        memCacheWidth: 270,
+                        memCacheHeight: 270,
                         placeholder: (_, __) => const Center(
                           child: SizedBox(
                             width: 22,

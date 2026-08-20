@@ -41,7 +41,11 @@ class _LoginViewState extends State<LoginView> {
         phone: _phoneController.text,
         password: _passwordController.text,
       );
-      if (success) Get.back();
+      if (success) {
+        FocusManager.instance.primaryFocus?.unfocus();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        if (mounted) Get.back(result: true);
+      }
     }
   }
 

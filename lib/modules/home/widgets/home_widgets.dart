@@ -20,25 +20,39 @@ class BannerCarousel extends StatefulWidget {
 }
 
 class _BannerCarouselState extends State<BannerCarousel> {
+  // Infinite-loop trick: PageView holds a huge (but finite) virtual item
+  // count, and each virtual index maps back to a real slide via `% count`.
+  // Auto-scroll always moves forward (`_virtualPage++`), so 4→1 continues
+  // as a plain forward slide instead of animating backward through 3,2,1.
+  static const int _virtualMultiplier = 5000;
+
   final PageController _pageController = PageController();
-  int _currentIndex = 0;
+  int _virtualPage = 0;
+  bool _initialized = false;
   Timer? _autoTimer;
   HomeController get _ctrl => Get.find<HomeController>();
 
-  @override
-  void initState() {
-    super.initState();
-    _startAutoScroll();
+  void _initLoopIfNeeded(int count) {
+    if (_initialized || count < 1) return;
+    _initialized = true;
+    // An exact multiple of `count`, so it maps to real slide 0 — the same
+    // slide already showing — meaning the jump below is visually a no-op.
+    _virtualPage = count * (_virtualMultiplier ~/ 2);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(_virtualPage);
+      }
+    });
+    if (count >= 2) _startAutoScroll();
   }
 
   void _startAutoScroll() {
+    _autoTimer?.cancel();
     _autoTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      final count = _ctrl.heroSlides.length;
-      if (count < 2) return;
-      final next = (_currentIndex + 1) % count;
+      if (!mounted || !_pageController.hasClients) return;
+      _virtualPage++;
       _pageController.animateToPage(
-        next,
+        _virtualPage,
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
@@ -101,6 +115,8 @@ class _BannerCarouselState extends State<BannerCarousel> {
         );
       }
 
+      _initLoopIfNeeded(slides.length);
+
       return Column(
         children: [
           Container(
@@ -108,15 +124,16 @@ class _BannerCarouselState extends State<BannerCarousel> {
             margin: const EdgeInsets.symmetric(vertical: 10),
             child: PageView.builder(
               controller: _pageController,
-              onPageChanged: (index) => setState(() => _currentIndex = index),
-              itemCount: slides.length,
+              onPageChanged: (index) => _virtualPage = index,
+              itemCount: slides.length * (_virtualMultiplier + 1),
               itemBuilder: (context, index) {
-                final slide = slides[index];
+                final realIndex = index % slides.length;
+                final slide = slides[realIndex];
                 final imageUrl = slide['imageUrl'] as String;
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    print('======== BANNER TAP [$index] ========');
+                    print('======== BANNER TAP [$realIndex] ========');
                     final raw = slide['_raw'] as Map<String, dynamic>?;
                     if (raw != null) {
                       print('[Banner] API RAW JSON:');
@@ -153,6 +170,11 @@ class _BannerCarouselState extends State<BannerCarousel> {
                           : CachedNetworkImage(
                               imageUrl: imageUrl,
                               fit: BoxFit.cover,
+                              memCacheWidth: (MediaQuery.of(context).size.width *
+                                      MediaQuery.of(context).devicePixelRatio)
+                                  .round(),
+                              memCacheHeight:
+                                  (180 * MediaQuery.of(context).devicePixelRatio).round(),
                               placeholder: (_, __) => Container(
                                 color: const Color(0xFFF2F4F3),
                                 child: const Center(

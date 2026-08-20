@@ -168,7 +168,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               // ── Tab bar ───────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _buildTabBar(),
+                child: _buildTabBar(isCategory ? 0 : 1),
               ),
               // ── Search field ──────────────────────────────────────────
               AnimatedSize(
@@ -273,7 +273,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   // ── Tab bar ────────────────────────────────────────────────────────────────
 
-  Widget _buildTabBar() {
+  // `selectedIndex` is passed in from the outer Obx in build() (which
+  // already reacts to `_ctrl.selectedTab`) instead of re-subscribing here —
+  // avoids a redundant nested Obx rebuilding this same subtree twice.
+  Widget _buildTabBar(int selectedIndex) {
     return Container(
       height: 40,
       padding: const EdgeInsets.all(3),
@@ -284,40 +287,37 @@ class _CategoryScreenState extends State<CategoryScreen> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final segmentWidth = constraints.maxWidth / 2;
-          return Obx(() {
-            final selectedIndex = _ctrl.selectedTab.value;
-            return Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  left: segmentWidth * selectedIndex,
-                  width: segmentWidth,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                left: segmentWidth * selectedIndex,
+                width: segmentWidth,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
                   ),
                 ),
-                Row(
-                  children: [
-                    Expanded(child: _buildTabButton(0, 'categories'.tr, selectedIndex)),
-                    Expanded(child: _buildTabButton(1, 'brands'.tr, selectedIndex)),
-                  ],
-                ),
-              ],
-            );
-          });
+              ),
+              Row(
+                children: [
+                  Expanded(child: _buildTabButton(0, 'categories'.tr, selectedIndex)),
+                  Expanded(child: _buildTabButton(1, 'brands'.tr, selectedIndex)),
+                ],
+              ),
+            ],
+          );
         },
       ),
     );
@@ -751,6 +751,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
       imageUrl: ApiConstants.fileUrl(imageUrl),
       height: 52,
       fit: BoxFit.contain,
+      memCacheWidth: 156,
+      memCacheHeight: 156,
       placeholder: (_, __) => const SizedBox(
         width: 24,
         height: 24,
@@ -970,6 +972,8 @@ class _BrandImage extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: imageUrl,
       fit: BoxFit.contain,
+      memCacheWidth: 240,
+      memCacheHeight: 240,
       placeholder: (_, __) => const Center(
         child: SizedBox(
           height: 18,

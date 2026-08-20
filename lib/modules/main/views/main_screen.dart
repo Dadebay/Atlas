@@ -28,9 +28,9 @@ class MainScreen extends GetView<MainController> {
             ],
           )),
       bottomNavigationBar: Obx(() {
-        final cartController = Get.find<CartController>();
-        final cartCount = cartController.cartItems.length;
-
+        // Only currentIndex drives this rebuild — the cart badge count is
+        // read reactively inside AnimatedBottomNavBar's own Obx, so a cart
+        // change repaints just the badge instead of the whole nav bar.
         return AnimatedBottomNavBar(
           currentIndex: controller.currentIndex.value,
           onTap: controller.changeIndex,
@@ -46,7 +46,7 @@ class MainScreen extends GetView<MainController> {
             NavBarItemData(
               icon: HugeIcons.strokeRoundedShoppingCart01,
               label: 'cart'.tr,
-              badgeCount: cartCount,
+              badgeCountGetter: () => Get.find<CartController>().cartItems.length,
               iconKey: CartFlyAnimation.cartIconKey,
             ),
             NavBarItemData(

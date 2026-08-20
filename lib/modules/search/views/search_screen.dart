@@ -27,10 +27,42 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _hasSearched = false;
   List<Map<String, dynamic>> _results = [];
 
+  // Shown before the user has typed/searched anything — picked from
+  // discounted items so it doubles as an incentive to browse.
+  List<Map<String, dynamic>> _recommended = [];
+  bool _isLoadingRecommended = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRecommended();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchRecommended() async {
+    setState(() => _isLoadingRecommended = true);
+    try {
+      final response =
+          await _api.getData('products/all?page=1&size=20&discount=true');
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        final items = body['data']['items'] as List? ?? [];
+        setState(() {
+          _recommended = items
+              .map((e) => _toProductMap(e as Map<String, dynamic>))
+              .toList();
+        });
+      }
+    } catch (e) {
+      print('[Recommended API] Exception: $e');
+    }
+    if (mounted) setState(() => _isLoadingRecommended = false);
   }
 
   Future<void> _searchProducts(String query) async {
@@ -189,48 +221,101 @@ class _SearchScreenState extends State<SearchScreen> {
                     )
                   : _hasSearched && _results.isEmpty
                       ? _buildNoResults()
-                      : _results.isEmpty
-                          ? const SizedBox.shrink()
-                          : GridView.builder(
-                              padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
-                                mainAxisExtent: 260,
-                              ),
-                              itemCount: _results.length,
-                              itemBuilder: (context, index) {
-                                final item = _results[index];
-                                return ProductCard(
-                                  id: item['id'] as String?,
-                                  title: item['title'] as String,
-                                  imageUrl: item['imageUrl'] as String,
-                                  price: item['price'] as double,
-                                  oldPrice: item['oldPrice'] as double?,
-                                  discount: item['discount'] as String?,
-                                  brandName: item['brandName'] as String?,
-                                  categoryName:
-                                      item['categoryName'] as String? ?? '',
-                                  onTap: () => Get.to(
-                                    () => ProductDetailScreen(
-                                        id: item['id'] as String?),
-                                    binding: ProductDetailBinding(),
-                                  ),
-                                  onCartPressed: () => cartCtrl.addItem({
-                                    'id': item['id'],
-                                    'title': item['title'],
-                                    'imageUrl': item['imageUrl'],
-                                    'price': item['price'],
-                                  }),
-                                );
-                              },
-                            ),
+                      : !_hasSearched
+                          ? _buildRecommended(cartCtrl)
+                          : _buildProductGrid(_results, cartCtrl),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRecommended(CartController cartCtrl) {
+    if (_isLoadingRecommended && _recommended.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.green,
+          strokeWidth: 2.5,
+        ),
+      );
+    }
+    if (_recommended.isEmpty) return const SizedBox.shrink();
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          sliver: SliverToBoxAdapter(
+            child: Text(
+              'recommended_products'.tr,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Gilroy',
+              ),
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
+          sliver: _buildProductSliverGrid(_recommended, cartCtrl),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProductGrid(
+      List<Map<String, dynamic>> items, CartController cartCtrl) {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        mainAxisExtent: 260,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) =>
+          _buildProductCard(items[index], cartCtrl),
+    );
+  }
+
+  Widget _buildProductSliverGrid(
+      List<Map<String, dynamic>> items, CartController cartCtrl) {
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        mainAxisExtent: 260,
+      ),
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => _buildProductCard(items[index], cartCtrl),
+        childCount: items.length,
+      ),
+    );
+  }
+
+  Widget _buildProductCard(Map<String, dynamic> item, CartController cartCtrl) {
+    return ProductCard(
+      id: item['id'] as String?,
+      title: item['title'] as String,
+      imageUrl: item['imageUrl'] as String,
+      price: item['price'] as double,
+      oldPrice: item['oldPrice'] as double?,
+      discount: item['discount'] as String?,
+      brandName: item['brandName'] as String?,
+      categoryName: item['categoryName'] as String? ?? '',
+      onTap: () => Get.to(
+        () => ProductDetailScreen(id: item['id'] as String?),
+        binding: ProductDetailBinding(),
+      ),
+      onCartPressed: () => cartCtrl.addItem({
+        'id': item['id'],
+        'title': item['title'],
+        'imageUrl': item['imageUrl'],
+        'price': item['price'],
+      }),
     );
   }
 

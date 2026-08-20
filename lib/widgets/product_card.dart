@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:lottie/lottie.dart';
 import 'package:atlas/core/services/auth_storage.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
@@ -201,6 +202,7 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final dpr = MediaQuery.of(context).devicePixelRatio;
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
@@ -232,6 +234,17 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
                                 width: double.infinity,
                                 height: 140,
                                 fit: BoxFit.cover,
+                                memCacheWidth: ((widget.width ?? 170) * dpr).round(),
+                                memCacheHeight: (140 * dpr).round(),
+                                placeholder: (_, __) => const Center(
+                                  child: SizedBox(
+                                    width: 56,
+                                    height: 56,
+                                    child: RepaintBoundary(
+                                      child: _ImageLoadingAnimation(),
+                                    ),
+                                  ),
+                                ),
                                 errorWidget: (_, __, ___) => const Center(
                                   child: Icon(Icons.image, size: 40, color: Colors.grey),
                                 ),
@@ -480,6 +493,21 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
           ),
         ),
       ],
+    );
+  }
+}
+
+// Shown inside the image area while the network image is still loading.
+class _ImageLoadingAnimation extends StatelessWidget {
+  const _ImageLoadingAnimation();
+
+  @override
+  Widget build(BuildContext context) {
+    return Lottie.asset(
+      'assets/images/pencil_drawing_loading.json',
+      repeat: true,
+      animate: true,
+      fit: BoxFit.contain,
     );
   }
 }

@@ -12,7 +12,9 @@ class BrandsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(BrandsController());
+    final controller = Get.isRegistered<BrandsController>()
+        ? Get.find<BrandsController>()
+        : Get.put(BrandsController());
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
@@ -198,6 +200,8 @@ class _BrandImage extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: imageUrl,
       fit: BoxFit.contain,
+      memCacheWidth: 320,
+      memCacheHeight: 320,
       placeholder: (_, __) => const Center(
         child: SizedBox(
           height: 24,

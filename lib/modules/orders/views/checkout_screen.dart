@@ -172,6 +172,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         : CachedNetworkImage(
                                             imageUrl: image,
                                             fit: BoxFit.contain,
+                                            memCacheWidth: 168,
+                                            memCacheHeight: 168,
                                             errorWidget: (_, __, ___) =>
                                                 const Icon(Icons.image,
                                                     color: Colors.grey),
