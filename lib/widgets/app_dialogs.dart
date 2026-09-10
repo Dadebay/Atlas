@@ -8,6 +8,8 @@ import 'package:atlas/core/services/auth_storage.dart';
 import 'package:atlas/core/services/navigation_service.dart';
 import 'package:atlas/modules/main/controllers/main_controller.dart';
 import 'package:atlas/modules/orders/controllers/order_controller.dart';
+import 'package:atlas/core/theme/app_motion.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class AppDialogs {
   static void showTopSuccessSnackbar({
@@ -349,6 +351,8 @@ class AppDialogs {
           ),
         ),
       ),
+      transitionDuration: AppMotion.standard,
+      transitionCurve: AppMotion.easeOut,
     );
   }
 
@@ -391,11 +395,17 @@ class AppDialogs {
                         color: const Color(0xFFF9F9F9),
                         child: item['imageUrl'].toString().startsWith('assets')
                             ? Image.asset(item['imageUrl'], fit: BoxFit.contain)
-                            : Image.network(item['imageUrl'],
+                            : CachedNetworkImage(
+                                imageUrl: item['imageUrl'].toString(),
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => const Icon(
-                                    Icons.image,
-                                    color: Colors.grey)),
+                                memCacheWidth: 240,
+                                memCacheHeight: 240,
+                                placeholder: (_, __) => const SizedBox.expand(),
+                                errorWidget: (_, __, ___) => const Icon(
+                                  Icons.image,
+                                  color: Colors.grey,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(width: 15),
@@ -573,6 +583,8 @@ class AppDialogs {
         ),
       ),
       barrierDismissible: false,
+      transitionDuration: AppMotion.standard,
+      transitionCurve: AppMotion.easeOut,
     );
   }
 

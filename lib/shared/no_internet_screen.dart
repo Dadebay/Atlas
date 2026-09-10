@@ -3,44 +3,43 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:atlas/themes/colors.dart';
-import 'package:atlas/modules/splash/views/splash_screen.dart';
 
-class NoInternetScreen extends StatefulWidget {
+import 'package:atlas/modules/splash/views/bootstrap_gate.dart';
+import 'package:atlas/shared/connection_error_view.dart';
+
+/// The whole-app offline screen.
+///
+/// Reserved for the case where nothing at all can be shown. Normal fetch
+/// failures use [ConnectionErrorView] inside the screen that failed, so the
+/// tabs and anything already loaded stay usable — the app no longer replaces
+/// itself with this page just because one request did not come back.
+class NoInternetScreen extends StatelessWidget {
   const NoInternetScreen({super.key});
 
-  @override
-  State<NoInternetScreen> createState() => _NoInternetScreenState();
-}
-
-class _NoInternetScreenState extends State<NoInternetScreen> {
-  bool _isChecking = false;
-
   Future<void> _retry() async {
-    setState(() => _isChecking = true);
-    bool ok = false;
+    var reachable = false;
     try {
-      // Check connection to a reliable host
-      final result = await InternetAddress.lookup(
-        'google.com',
-      ).timeout(const Duration(seconds: 5));
-      ok = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+      // Atlas' own host, not google.com — that one is blocked in Turkmenistan,
+      // so it would report "no internet" on a perfectly working connection.
+      final result = await InternetAddress.lookup('atlas.com.tm')
+          .timeout(const Duration(milliseconds: 1500));
+      reachable = result.isNotEmpty && result.first.rawAddress.isNotEmpty;
     } on TimeoutException catch (_) {
-      ok = false;
+      reachable = false;
     } catch (_) {
-      ok = false;
+      reachable = false;
     }
-    if (!mounted) return;
-    if (ok) {
-      Get.offAll(() => const SplashScreen());
+
+    if (reachable) {
+      Get.offAll(() => const BootstrapGate());
     } else {
-      setState(() => _isChecking = false);
       Get.snackbar(
-        'Näsazlyk',
-        'Internede birigip bolmady. Täzeden synanyşyň.',
-        // snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
+        'connection_error_title'.tr,
+        'connection_error_desc'.tr,
+        backgroundColor: const Color(0xFFE53935),
         colorText: Colors.white,
+        borderRadius: 14,
+        margin: const EdgeInsets.all(16),
       );
     }
   }
@@ -49,70 +48,7 @@ class _NoInternetScreenState extends State<NoInternetScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.wifi_off_rounded,
-                size: 100,
-                color: AppColors.green,
-              ),
-              const SizedBox(height: 30),
-              const Text(
-                'Internet birikmesi ýok',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Gilroy',
-                ),
-              ),
-              const SizedBox(height: 15),
-              const Text(
-                'Dowam etmek üçin internete birigiň we täzeden synanyşyň.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                  fontFamily: 'Gilroy',
-                ),
-              ),
-              const SizedBox(height: 40),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.green,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _isChecking ? null : _retry,
-                child: _isChecking
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Täzeden synanyş',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      body: SafeArea(child: ConnectionErrorView(onRetry: _retry)),
     );
   }
 }

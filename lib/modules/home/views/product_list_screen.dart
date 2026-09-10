@@ -16,6 +16,7 @@ import 'package:atlas/widgets/product_card_shimmer.dart';
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
 import 'package:atlas/modules/brands/controllers/brands_controller.dart';
+import 'package:atlas/widgets/filter_pill.dart';
 
 const _kGreen = AppColors.green;
 
@@ -69,7 +70,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
       if (!_isLoading && _hasMore) _fetchProducts();
     }
   }
@@ -97,14 +99,19 @@ class _ProductListScreenState extends State<ProductListScreen> {
         final total = (body['data']['total'] as num?)?.toInt() ?? 0;
         final lang = Get.locale?.languageCode ?? 'tk';
 
-        var fetched = items.map((e) => _toProductMap(e as Map<String, dynamic>, lang)).toList();
+        var fetched = items
+            .map((e) => _toProductMap(e as Map<String, dynamic>, lang))
+            .toList();
 
         if (_selectedSort == 'low') {
-          fetched.sort((a, b) => (a['price'] as double).compareTo(b['price'] as double));
+          fetched.sort(
+              (a, b) => (a['price'] as double).compareTo(b['price'] as double));
         } else if (_selectedSort == 'high') {
-          fetched.sort((a, b) => (b['price'] as double).compareTo(a['price'] as double));
+          fetched.sort(
+              (a, b) => (b['price'] as double).compareTo(a['price'] as double));
         } else if (_selectedSort == 'discount') {
-          fetched.sort((a, b) => (b['discount'] != null ? 1 : 0).compareTo(a['discount'] != null ? 1 : 0));
+          fetched.sort((a, b) => (b['discount'] != null ? 1 : 0)
+              .compareTo(a['discount'] != null ? 1 : 0));
         }
 
         setState(() {
@@ -129,13 +136,21 @@ class _ProductListScreenState extends State<ProductListScreen> {
             ? rawImageUrl
             : ApiConstants.fileUrl(rawImageUrl);
 
-    final salePrice = double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0;
-    final discountRaw = (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0).round();
-    final oldPrice = discountRaw > 0 && salePrice > 0 ? salePrice + salePrice * discountRaw / 100 : null;
+    final salePrice =
+        double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0;
+    final discountRaw =
+        (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0).round();
+    final oldPrice = discountRaw > 0 && salePrice > 0
+        ? salePrice + salePrice * discountRaw / 100
+        : null;
     final categoryName = item['category_name']?.toString() ?? '';
-    final categoryId = item['category_id'] is int ? item['category_id'] as int : int.tryParse(item['category_id']?.toString() ?? '');
+    final categoryId = item['category_id'] is int
+        ? item['category_id'] as int
+        : int.tryParse(item['category_id']?.toString() ?? '');
     final brandName = item['brand_name']?.toString() ?? '';
-    final brandId = item['brand_id'] is int ? item['brand_id'] as int : int.tryParse(item['brand_id']?.toString() ?? '');
+    final brandId = item['brand_id'] is int
+        ? item['brand_id'] as int
+        : int.tryParse(item['brand_id']?.toString() ?? '');
 
     return {
       'id': item['id'].toString(),
@@ -176,7 +191,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
         ),
       ),
       transitionBuilder: (_, anim, __, child) => SlideTransition(
-        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
         child: child,
       ),
     );
@@ -192,7 +208,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
     _showRightSheet(StatefulBuilder(
       builder: (ctx, setInner) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -232,7 +249,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
-                    hintText: lang == 'ru' ? 'Поиск брендов...' : 'Brend gözle...',
+                    hintText:
+                        lang == 'ru' ? 'Поиск брендов...' : 'Brend gözle...',
                     hintStyle: const TextStyle(
                       color: Colors.black38,
                       fontSize: 14,
@@ -246,10 +264,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
                         size: 18,
                       ),
                     ),
-                    prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    prefixIconConstraints:
+                        const BoxConstraints(minWidth: 44, minHeight: 44),
                     filled: true,
                     fillColor: const Color(0xFFF5F7FA),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(color: Color(0xFFE8EAED)),
@@ -279,11 +299,17 @@ class _ProductListScreenState extends State<ProductListScreen> {
               Expanded(
                 child: Obx(() {
                   if (_brandsCtrl.isLoading.value) {
-                    return const Center(child: CircularProgressIndicator(color: _kGreen, strokeWidth: 2));
+                    return const Center(
+                        child: CircularProgressIndicator(
+                            color: _kGreen, strokeWidth: 2));
                   }
 
                   final query = brandQuery.trim().toLowerCase();
-                  final brands = query.isEmpty ? _brandsCtrl.brands : _brandsCtrl.brands.where((b) => b.name.toLowerCase().contains(query)).toList();
+                  final brands = query.isEmpty
+                      ? _brandsCtrl.brands
+                      : _brandsCtrl.brands
+                          .where((b) => b.name.toLowerCase().contains(query))
+                          .toList();
 
                   if (brands.isEmpty) {
                     return Center(
@@ -304,7 +330,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   return ListView.separated(
                     padding: EdgeInsets.zero,
                     itemCount: brands.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1, indent: 20, endIndent: 20),
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, indent: 20, endIndent: 20),
                     itemBuilder: (_, i) {
                       final brand = brands[i];
                       final isSel = _tempBrandId == brand.id;
@@ -322,7 +349,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                   ),
                                   child: Center(
                                     child: Text(
-                                      brand.name.isNotEmpty ? brand.name[0].toUpperCase() : '?',
+                                      brand.name.isNotEmpty
+                                          ? brand.name[0].toUpperCase()
+                                          : '?',
                                       style: const TextStyle(
                                         color: _kGreen,
                                         fontWeight: FontWeight.bold,
@@ -338,8 +367,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                       color: _kGreen.withOpacity(0.08),
                                       child: Center(
                                         child: Text(
-                                          brand.name.isNotEmpty ? brand.name[0].toUpperCase() : '?',
-                                          style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold),
+                                          brand.name.isNotEmpty
+                                              ? brand.name[0].toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                              color: _kGreen,
+                                              fontWeight: FontWeight.bold),
                                         ),
                                       ),
                                     ),
@@ -503,7 +536,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   foregroundColor: Colors.black54,
                   side: const BorderSide(color: Color(0xFFE0E0E0)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 child: Text(
                   lang == 'ru' ? 'Отмена' : 'Goýbolsun et',
@@ -524,7 +558,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   foregroundColor: Colors.white,
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 child: Text(
                   lang == 'ru' ? 'Применить' : 'Saýla',
@@ -629,7 +664,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
           const Spacer(),
           // Brand button
-          _filterPill(
+          FilterPill(
             label: 'brands'.tr,
             icon: HugeIcons.strokeRoundedStore01,
             isActive: _selectedBrandId != null,
@@ -643,7 +678,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
           const SizedBox(width: 8),
           // Sort button
-          _filterPill(
+          FilterPill(
             label: lang == 'ru' ? 'Фильтр' : 'Süzgüç',
             icon: HugeIcons.strokeRoundedSlidersHorizontal,
             isActive: _selectedSort != null,
@@ -656,53 +691,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 : null,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _filterPill({
-    required String label,
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-    VoidCallback? onClear,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 42,
-        padding: EdgeInsets.only(left: 12, right: isActive ? 8 : 14),
-        decoration: BoxDecoration(
-          color: isActive ? _kGreen : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            HugeIcon(
-              icon: icon,
-              color: isActive ? Colors.white : Colors.black87,
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : const Color(0xFF1D1B20),
-                fontFamily: 'Gilroy',
-              ),
-            ),
-            if (isActive && onClear != null) ...[
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: onClear,
-                child: const Icon(Icons.close, size: 16, color: Colors.white),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -728,11 +716,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Plays once and rests on its last frame — an empty state
+                  // has nothing more to say after the first pass.
                   Lottie.asset(
                     'assets/images/shopping-cart.json',
                     width: 180,
                     height: 180,
-                    repeat: true,
+                    repeat: false,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -771,14 +761,18 @@ class _ProductListScreenState extends State<ProductListScreen> {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(16),
-                child: CircularProgressIndicator(color: _kGreen, strokeWidth: 2.5),
+                child:
+                    CircularProgressIndicator(color: _kGreen, strokeWidth: 2.5),
               ),
             );
           }
 
           final product = _products[index];
           final price = (product['price'] as num).toDouble();
-          final catName = (product['categoryName'] as String?)?.isNotEmpty == true ? product['categoryName'] as String : CatalogService.to.categoryName(product['categoryId'] as int?);
+          final catName = (product['categoryName'] as String?)?.isNotEmpty ==
+                  true
+              ? product['categoryName'] as String
+              : CatalogService.to.categoryName(product['categoryId'] as int?);
 
           return ProductCard(
             id: product['id'] as String,

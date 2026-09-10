@@ -1,9 +1,10 @@
 import 'package:atlas/core/services/api_constants.dart';
-import 'package:atlas/modules/auth/views/login_view.dart';
-import 'package:atlas/modules/auth/views/register_phone_view.dart';
+import 'package:atlas/core/utils/phone_utils.dart';
+import 'package:atlas/modules/auth/views/phone_auth_view.dart';
 import 'package:atlas/modules/main/controllers/main_controller.dart';
 import 'package:atlas/modules/profile/views/web_view.dart';
 import 'package:atlas/themes/colors.dart';
+import 'package:atlas/widgets/pressable.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -13,13 +14,15 @@ import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/profile/views/help_support_page.dart';
 import 'package:atlas/modules/profile/views/settings_page.dart';
 import 'package:atlas/modules/orders/views/my_orders_screen.dart';
+import 'package:atlas/modules/profile/views/edit_name_sheet.dart';
 
 class ProfileScreen extends GetView<ProfileController> {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() => controller.isLoggedIn.value ? _buildLoggedIn() : _buildNotLoggedIn());
+    return Obx(() =>
+        controller.isLoggedIn.value ? _buildLoggedIn() : _buildNotLoggedIn());
   }
 
   void _openWebView(String path, String title) {
@@ -29,7 +32,6 @@ class ProfileScreen extends GetView<ProfileController> {
         url: '${ApiConstants.webBaseUrl}/$lang/$path',
         title: title,
       ),
-      transition: Transition.rightToLeft,
     );
   }
 
@@ -41,62 +43,124 @@ class ProfileScreen extends GetView<ProfileController> {
       body: NestedScrollView(
         headerSliverBuilder: (ctx, _) => [_buildSliverAppBar()],
         body: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // A quiet mark to anchor the page — the screen used to be a
+              // heading, a line of text and a button stranded at the top of a
+              // very tall empty white area.
+              Container(
+                width: 92,
+                height: 92,
+                decoration: BoxDecoration(
+                  color: AppColors.green.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: HugeIcon(
+                    icon: HugeIcons.strokeRoundedUserCircle,
+                    color: AppColors.green,
+                    size: 44,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 26),
               Text(
                 'not_logged_in_title'.tr,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
                   fontSize: 26,
+                  height: 1.2,
+                  fontWeight: FontWeight.w700,
                   fontFamily: 'Gilroy',
+                  color: Color(0xFF14181F),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(
                 'not_logged_in_desc'.tr,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 15,
+                  height: 1.5,
                   fontFamily: 'Gilroy',
-                  color: Colors.black54,
-                  height: 1.4,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF7A828F),
                 ),
               ),
-              const SizedBox(height: 36),
-              _buildGradientButton(
-                text: 'login_button'.tr,
-                onTap: () => Get.to(() => const LoginView()),
+              const SizedBox(height: 30),
+              // What signing in is actually for. Three concrete things beat one
+              // abstract sentence about "accessing your profile".
+              _buildBenefitRow(
+                HugeIcons.strokeRoundedPackage,
+                'benefit_orders'.tr,
+              ),
+              const SizedBox(height: 14),
+              _buildBenefitRow(
+                HugeIcons.strokeRoundedFavourite,
+                'benefit_favorites'.tr,
+              ),
+              const SizedBox(height: 14),
+              _buildBenefitRow(
+                HugeIcons.strokeRoundedRocket01,
+                'benefit_fast_order'.tr,
+              ),
+              const SizedBox(height: 34),
+              // Signing in and signing up are the same screen: an unknown phone
+              // number is registered automatically once its code is verified.
+              _buildPrimaryButton(
+                text: 'auth_enter'.tr,
+                onTap: () => Get.to(
+                  () => const PhoneAuthView(),
+                  routeName: '/auth/phone',
+                ),
               ),
               const SizedBox(height: 16),
-              InkWell(
-                onTap: () => Get.to(() => const RegisterPhoneView()),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  height: 68,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.grey.shade200,
-                  ),
-                  child: Center(
-                    child: Text(
-                      'register_button'.tr,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        color: AppColors.green,
-                        fontWeight: FontWeight.w400,
-                        fontFamily: 'Gilroy',
-                      ),
-                    ),
-                  ),
+              Text(
+                'auth_no_password_note'.tr,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  fontFamily: 'Gilroy',
+                  color: Color(0xFF9AA1AC),
                 ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBenefitRow(IconData icon, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F6FA),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: HugeIcon(icon: icon, color: AppColors.green, size: 20),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14.5,
+              height: 1.4,
+              fontFamily: 'Gilroy',
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF3F4753),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -136,80 +200,116 @@ class ProfileScreen extends GetView<ProfileController> {
 
   // ─── SHARED SLIVER APP BAR ────────────────────────────────────────────────
 
+  /// Brand header for the signed-out profile page.
+  ///
+  /// The previous version declared `preferredSize: Size.fromHeight(0)` for a
+  /// bottom that actually painted 24 px, so the white cap was laid out on top
+  /// of the toolbar and clipped the bottom of the logo. It also reserved a
+  /// 120 px toolbar for a 40 px mark, leaving it floating in dead space.
   SliverAppBar _buildSliverAppBar() {
+    const capHeight = 26.0;
+
     return SliverAppBar(
+      pinned: true,
       backgroundColor: AppColors.green,
-      elevation: 4,
-      centerTitle: true,
-      toolbarHeight: 120,
+      surfaceTintColor: AppColors.green,
+      // The white sheet curves out of this bar; a drop shadow on top of that
+      // curve reads as two overlapping surfaces.
+      elevation: 0,
+      scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
+      centerTitle: true,
+      toolbarHeight: 60,
+      titleSpacing: 0,
+      title: Image.asset(
+        'assets/images/logo3.png',
+        height: 34,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const Text(
+          'ATLAS',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2,
+            fontFamily: 'Gilroy',
+          ),
+        ),
+      ),
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: 8, bottom: 24),
+          padding: const EdgeInsets.only(right: 6),
           child: IconButton(
             onPressed: () => Get.to(() => const SettingsPage()),
+            tooltip: 'Settings'.tr,
+            // Icon-only control: keep the full 48 px target rather than
+            // shrink-wrapping the glyph.
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             icon: const HugeIcon(
               icon: HugeIcons.strokeRoundedSettings01,
               color: Colors.white,
-              size: 26,
+              size: 24,
             ),
           ),
         ),
       ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(0),
-        child: Container(
-          height: 24,
-          width: double.maxFinite,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          ),
-        ),
-      ),
-      title: ClipRRect(
-        child: Image.asset(
-          'assets/images/logo3.png',
-          height: 100,
-          // color: Colors.white,
-          colorBlendMode: BlendMode.srcIn,
-          errorBuilder: (_, __, ___) => const Icon(
-            Icons.shopping_bag_outlined,
-            color: Colors.white,
-            size: 56,
+      bottom: const PreferredSize(
+        // Declared height matches what is painted, so the cap sits below the
+        // toolbar instead of over it.
+        preferredSize: Size.fromHeight(capHeight),
+        child: SizedBox(
+          height: capHeight,
+          width: double.infinity,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildGradientButton({
+  Widget _buildPrimaryButton({
     required String text,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return Pressable(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
       child: Container(
-        height: 68,
+        height: 56,
+        width: double.infinity,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          gradient: const LinearGradient(
-            colors: [AppColors.green, AppColors.green],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 18,
-              color: Colors.white,
-              fontWeight: FontWeight.w300,
-              fontFamily: 'Gilroy',
+          color: AppColors.green,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.green.withValues(alpha: 0.22),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
-          ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 17,
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Gilroy',
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ],
         ),
       ),
     );
@@ -218,70 +318,120 @@ class ProfileScreen extends GetView<ProfileController> {
   // ─── PROFILE HEADER ───────────────────────────────────────────────────────
 
   Widget _buildProfileHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.green, width: 2),
+    // The card is the affordance: tapping it is how a phone-only account gets
+    // a name. Nothing forces it — an account with no name stays perfectly
+    // usable and shows the number instead.
+    return Pressable(
+      onTap: () => EditNameSheet.show(controller.userName.value),
+      child: Container(
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
-            child: CircleAvatar(
-              radius: 35,
-              backgroundColor: AppColors.green.withOpacity(0.1),
-              child: Obx(() => Text(
-                    controller.userName.value.isNotEmpty ? controller.userName.value[0].toUpperCase() : 'U',
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.green, width: 2),
+              ),
+              child: CircleAvatar(
+                radius: 35,
+                backgroundColor: AppColors.green.withOpacity(0.1),
+                child: Obx(() {
+                  final name = controller.userName.value;
+                  if (name.isEmpty) {
+                    return const HugeIcon(
+                      icon: HugeIcons.strokeRoundedUser,
+                      color: AppColors.green,
+                      size: 30,
+                    );
+                  }
+                  return Text(
+                    name[0].toUpperCase(),
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: AppColors.green,
                       fontFamily: 'Gilroy',
                     ),
-                  )),
+                  );
+                }),
+              ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Obx(() => Text(
-                      controller.userName.value,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        fontFamily: 'Gilroy',
-                        color: Color(0xFF1D1B20),
-                      ),
-                    )),
-                const SizedBox(height: 4),
-                Obx(() => Text(
-                      '+${controller.userPhone.value}',
-                      style: const TextStyle(
-                        color: Colors.black45,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        fontFamily: 'Gilroy',
-                      ),
-                    )),
-              ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Obx(() {
+                    final name = controller.userName.value;
+                    final phone =
+                        PhoneUtils.toDisplay(controller.userPhone.value);
+                    const nameStyle = TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Gilroy',
+                      color: Color(0xFF1D1B20),
+                    );
+                    const phoneStyle = TextStyle(
+                      color: Colors.black45,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'Gilroy',
+                    );
+
+                    // No name yet: the phone number is the identity, so it moves
+                    // up rather than sitting under an empty line.
+                    if (name.isEmpty) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(phone, style: nameStyle),
+                          const SizedBox(height: 4),
+                          Text(
+                            'add_your_name'.tr,
+                            style: const TextStyle(
+                              color: AppColors.green,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Gilroy',
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: nameStyle),
+                        const SizedBox(height: 4),
+                        Text(phone, style: phoneStyle),
+                      ],
+                    );
+                  }),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            const HugeIcon(
+              icon: HugeIcons.strokeRoundedArrowRight01,
+              color: Color(0xFFB6BCC6),
+              size: 20,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -443,7 +593,9 @@ class ProfileScreen extends GetView<ProfileController> {
                     HugeIcon(
                       icon: HugeIcons.strokeRoundedArrowRight01,
                       size: 18,
-                      color: isDestructive ? Colors.red.withOpacity(0.4) : Colors.black26,
+                      color: isDestructive
+                          ? Colors.red.withOpacity(0.4)
+                          : Colors.black26,
                     ),
               ],
             ),
@@ -565,7 +717,8 @@ class _ProfileSubItem {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
-  const _ProfileSubItem({required this.icon, required this.title, required this.onTap});
+  const _ProfileSubItem(
+      {required this.icon, required this.title, required this.onTap});
 }
 
 // ─── ACCORDION WIDGET ─────────────────────────────────────────────────────────
@@ -582,10 +735,12 @@ class _ProfileExpandableGroup extends StatefulWidget {
   });
 
   @override
-  State<_ProfileExpandableGroup> createState() => _ProfileExpandableGroupState();
+  State<_ProfileExpandableGroup> createState() =>
+      _ProfileExpandableGroupState();
 }
 
-class _ProfileExpandableGroupState extends State<_ProfileExpandableGroup> with SingleTickerProviderStateMixin {
+class _ProfileExpandableGroupState extends State<_ProfileExpandableGroup>
+    with SingleTickerProviderStateMixin {
   bool _expanded = false;
   late final AnimationController _controller;
   late final Animation<double> _rotate;
@@ -640,7 +795,8 @@ class _ProfileExpandableGroupState extends State<_ProfileExpandableGroup> with S
               child: InkWell(
                 onTap: _toggle,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: Row(
                     children: [
                       HugeIcon(
@@ -680,7 +836,11 @@ class _ProfileExpandableGroupState extends State<_ProfileExpandableGroup> with S
                 opacity: _fade,
                 child: Column(
                   children: [
-                    Divider(height: 1, color: Colors.grey.shade100, indent: 20, endIndent: 20),
+                    Divider(
+                        height: 1,
+                        color: Colors.grey.shade100,
+                        indent: 20,
+                        endIndent: 20),
                     ...widget.items.asMap().entries.map((e) {
                       final isLast = e.key == widget.items.length - 1;
                       return Column(
@@ -690,7 +850,8 @@ class _ProfileExpandableGroupState extends State<_ProfileExpandableGroup> with S
                             child: InkWell(
                               onTap: e.value.onTap,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 20, vertical: 14),
                                 child: Row(
                                   children: [
                                     const SizedBox(width: 6),
@@ -721,7 +882,12 @@ class _ProfileExpandableGroupState extends State<_ProfileExpandableGroup> with S
                               ),
                             ),
                           ),
-                          if (!isLast) Divider(height: 1, color: Colors.grey.shade100, indent: 58, endIndent: 20),
+                          if (!isLast)
+                            Divider(
+                                height: 1,
+                                color: Colors.grey.shade100,
+                                indent: 58,
+                                endIndent: 20),
                         ],
                       );
                     }),

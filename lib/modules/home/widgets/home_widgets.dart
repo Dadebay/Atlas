@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:atlas/themes/colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -133,14 +132,6 @@ class _BannerCarouselState extends State<BannerCarousel> {
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
-                    print('======== BANNER TAP [$realIndex] ========');
-                    final raw = slide['_raw'] as Map<String, dynamic>?;
-                    if (raw != null) {
-                      print('[Banner] API RAW JSON:');
-                      print(const JsonEncoder.withIndent('  ').convert(raw));
-                    }
-                    print('=====================================');
-
                     final productId = slide['productId'] as String?;
                     final categoryRaw =
                         slide['category'] as Map<String, dynamic>?;
@@ -170,11 +161,14 @@ class _BannerCarouselState extends State<BannerCarousel> {
                           : CachedNetworkImage(
                               imageUrl: imageUrl,
                               fit: BoxFit.cover,
-                              memCacheWidth: (MediaQuery.of(context).size.width *
+                              memCacheWidth: (MediaQuery.of(context)
+                                          .size
+                                          .width *
                                       MediaQuery.of(context).devicePixelRatio)
                                   .round(),
-                              memCacheHeight:
-                                  (180 * MediaQuery.of(context).devicePixelRatio).round(),
+                              memCacheHeight: (180 *
+                                      MediaQuery.of(context).devicePixelRatio)
+                                  .round(),
                               placeholder: (_, __) => Container(
                                 color: const Color(0xFFF2F4F3),
                                 child: const Center(
@@ -240,11 +234,24 @@ class QuickCategory extends StatelessWidget {
           ),
           Align(
             alignment: Alignment.bottomRight,
-            child: Image.network(
-              imageUrl,
-              height: 32,
-              width: 32,
-              fit: BoxFit.contain,
+            child: Builder(
+              builder: (context) {
+                // Decode at the size actually drawn, not at whatever the
+                // server sent — a 32 px slot must not hold a full-size bitmap.
+                final dpr = MediaQuery.of(context).devicePixelRatio;
+                return CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  height: 32,
+                  width: 32,
+                  fit: BoxFit.contain,
+                  memCacheWidth: (32 * dpr).round(),
+                  memCacheHeight: (32 * dpr).round(),
+                  // Same 32x32 box in every state, so nothing shifts on load.
+                  placeholder: (_, __) => const SizedBox(width: 32, height: 32),
+                  errorWidget: (_, __, ___) =>
+                      const SizedBox(width: 32, height: 32),
+                );
+              },
             ),
           ),
         ],

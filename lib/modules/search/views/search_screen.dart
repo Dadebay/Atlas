@@ -10,6 +10,7 @@ import 'package:atlas/core/services/api_constants.dart';
 import 'package:atlas/core/services/call_api.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
+import 'package:atlas/core/utils/app_log.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -60,7 +61,7 @@ class _SearchScreenState extends State<SearchScreen> {
         });
       }
     } catch (e) {
-      print('[Recommended API] Exception: $e');
+      AppLog.d('[Recommended API] Exception: $e');
     }
     if (mounted) setState(() => _isLoadingRecommended = false);
   }
@@ -77,8 +78,8 @@ class _SearchScreenState extends State<SearchScreen> {
       final encoded = Uri.encodeQueryComponent(trimmed);
       final response =
           await _api.getData('products/all?page=1&size=20&search=$encoded');
-      print('[Search API] GET status code: ${response.statusCode}');
-      print('[Search API] GET response body: ${response.body}');
+      AppLog.d('[Search API] GET status code: ${response.statusCode}');
+      AppLog.d('[Search API] GET response body: ${response.body}');
       if (!mounted) return;
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
@@ -90,7 +91,7 @@ class _SearchScreenState extends State<SearchScreen> {
         });
       }
     } catch (e) {
-      print('[Search API] Exception: $e');
+      AppLog.d('[Search API] Exception: $e');
     }
     if (mounted) setState(() => _isLoading = false);
   }

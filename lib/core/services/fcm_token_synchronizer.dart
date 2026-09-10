@@ -1,15 +1,15 @@
-// ignore_for_file: avoid_print
-
 import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
+import 'package:atlas/core/services/api_2.dart';
 import 'package:atlas/core/services/call_api.dart';
 import 'package:atlas/core/services/auth_storage.dart';
 import 'package:atlas/shared/no_internet_screen.dart';
 import 'fcm_token_provider.dart';
+import 'package:atlas/core/utils/app_log.dart';
 
 class FcmTokenSynchronizer {
   const FcmTokenSynchronizer(this._fcmTokenProvider);
@@ -17,7 +17,7 @@ class FcmTokenSynchronizer {
   final FcmTokenProvider _fcmTokenProvider;
 
   void init() {
-    print('FcmTokenSynchronizer initializing...');
+    AppLog.d('FcmTokenSynchronizer initializing...');
     _attachFcmTokenUpdateListener();
 
     if (_fcmTokenProvider.token.value != null) {
@@ -39,22 +39,22 @@ class FcmTokenSynchronizer {
 
   Future<void> _sendTokenToServer({required String? fcmToken}) async {
     if (fcmToken == null) {
-      if (kDebugMode) print('FCM token null, skipping sync.');
+      if (kDebugMode) AppLog.d('FCM token null, skipping sync.');
       return;
     }
 
     final userToken = AuthStorage().token;
     if (userToken == null) {
-      print('User not logged in, skipping FCM sync.');
+      AppLog.d('User not logged in, skipping FCM sync.');
       return;
     }
 
-    print('Sending FCM token to server: $fcmToken');
+    AppLog.d('Sending FCM token to server: $fcmToken');
 
     try {
-      await CallApi().postToken(
+      await CallApi().patchToken(
         {'fcm_token': fcmToken},
-        'api/user/fcm-token',
+        Api2.fcmToken,
         userToken,
       );
     } on SocketException catch (_) {
@@ -70,8 +70,7 @@ class FcmTokenSynchronizer {
           msg.contains('network is unreachable')) {
         _goNoInternet();
       } else {
-        print('FCM sync error: $e');
-        print(s);
+        AppLog.e('FcmTokenSynchronizer', e, s);
       }
     }
   }

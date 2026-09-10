@@ -14,6 +14,9 @@ import 'package:atlas/widgets/app_dialogs.dart';
 import 'package:atlas/widgets/cart_fly_animation.dart';
 import 'package:atlas/widgets/product_card.dart';
 import 'package:atlas/widgets/product_card_shimmer.dart';
+import 'package:atlas/core/theme/app_motion.dart';
+import 'package:atlas/widgets/animated_quantity_text.dart';
+import 'package:atlas/widgets/pressable.dart';
 
 const _kGreen = AppColors.green;
 
@@ -634,15 +637,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         1
                     : 0;
 
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 280),
-                  transitionBuilder: (child, anim) => ScaleTransition(
-                    scale: anim,
-                    child: FadeTransition(opacity: anim, child: child),
+                // Same 180x52 box for both states, so swapping the control
+                // never resizes the price row around it.
+                return SizedBox(
+                  width: 180,
+                  height: 52,
+                  child: AnimatedSwitcher(
+                    duration: AppMotion.duration(context, AppMotion.fast),
+                    switchInCurve: AppMotion.easeOut,
+                    switchOutCurve: AppMotion.easeOut,
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: ScaleTransition(
+                        scale: Tween<double>(
+                          begin: AppMotion.enterScale,
+                          end: 1,
+                        ).animate(anim),
+                        child: child,
+                      ),
+                    ),
+                    layoutBuilder: (current, previous) => Stack(
+                      fit: StackFit.expand,
+                      children: [...previous, if (current != null) current],
+                    ),
+                    child: inCart
+                        ? _buildStepper(idx, qty)
+                        : _buildAddButton(data, title, salePrice),
                   ),
-                  child: inCart
-                      ? _buildStepper(idx, qty)
-                      : _buildAddButton(data, title, salePrice),
                 );
               }),
             ],
@@ -654,10 +675,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildAddButton(
       Map<String, dynamic> data, String title, double salePrice) {
-    return SizedBox(
+    return KeyedSubtree(
       key: const ValueKey('add_btn'),
-      height: 52,
-      width: 180,
       child: ElevatedButton(
         key: _addButtonKey,
         onPressed: () => _guardedCart(() {
@@ -677,6 +696,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               imageUrl: imgUrl,
             );
           }
+          AppMotion.success();
         }),
         style: ElevatedButton.styleFrom(
           backgroundColor: _kGreen,
@@ -701,7 +721,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buildStepper(int idx, int qty) {
     return Container(
       key: const ValueKey('stepper'),
-      height: 52,
       decoration: BoxDecoration(
         color: _kGreen,
         borderRadius: BorderRadius.circular(14),
@@ -709,7 +728,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          GestureDetector(
+          Pressable(
             onTap: () => _cartCtrl.updateQuantity(idx, -1),
             child: const SizedBox(
               width: 52,
@@ -717,8 +736,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: Icon(Icons.remove, color: Colors.white, size: 22),
             ),
           ),
-          Text(
-            '$qty',
+          AnimatedQuantityText(
+            quantity: qty,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w800,
@@ -726,7 +745,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               fontFamily: 'Gilroy',
             ),
           ),
-          GestureDetector(
+          Pressable(
             onTap: () => _cartCtrl.updateQuantity(idx, 1),
             child: const SizedBox(
               width: 52,
@@ -864,6 +883,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     Get.to(
       () =>
           _FullScreenGallery(imageUrls: imageUrls, initialIndex: initialIndex),
+      // Deliberate exception to the platform route policy — the gallery fades
+      // up over the product rather than sliding in as a new page.
       transition: Transition.fadeIn,
       fullscreenDialog: true,
     );
@@ -891,12 +912,29 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
     super.initState();
     _current = widget.initialIndex;
     _pageCtrl = PageController(initialPage: widget.initialIndex);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _precacheNeighbours(widget.initialIndex),
+    );
   }
 
   @override
   void dispose() {
     _pageCtrl.dispose();
     super.dispose();
+  }
+
+  /// Warms only the pages either side of the current one. Decoding a whole
+  /// gallery up front is the fastest way to blow the image cache on a device
+  /// with little memory.
+  void _precacheNeighbours(int index) {
+    for (final neighbour in [index - 1, index + 1]) {
+      if (neighbour < 0 || neighbour >= widget.imageUrls.length) continue;
+      precacheImage(
+        CachedNetworkImageProvider(widget.imageUrls[neighbour]),
+        context,
+        onError: (_, __) {},
+      );
+    }
   }
 
   @override
@@ -909,21 +947,32 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
           PageView.builder(
             controller: _pageCtrl,
             itemCount: widget.imageUrls.length,
-            onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (_, index) => InteractiveViewer(
-              minScale: 0.5,
-              maxScale: 6.0,
-              child: CachedNetworkImage(
-                imageUrl: widget.imageUrls[index],
-                fit: BoxFit.contain,
-                width: double.infinity,
-                height: double.infinity,
-                placeholder: (_, __) => const Center(
-                  child: CircularProgressIndicator(
-                      color: Colors.white, strokeWidth: 2),
-                ),
-                errorWidget: (_, __, ___) => const Center(
-                  child: Icon(Icons.broken_image, size: 80, color: Colors.grey),
+            onPageChanged: (i) {
+              setState(() => _current = i);
+              _precacheNeighbours(i);
+            },
+            itemBuilder: (_, index) => Semantics(
+              image: true,
+              label: 'image_of_total'.trParams({
+                'index': '${index + 1}',
+                'total': '${widget.imageUrls.length}',
+              }),
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 6.0,
+                child: CachedNetworkImage(
+                  imageUrl: widget.imageUrls[index],
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  height: double.infinity,
+                  placeholder: (_, __) => const Center(
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  ),
+                  errorWidget: (_, __, ___) => const Center(
+                    child:
+                        Icon(Icons.broken_image, size: 80, color: Colors.grey),
+                  ),
                 ),
               ),
             ),
@@ -931,16 +980,31 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
           SafeArea(
             child: Align(
               alignment: Alignment.topRight,
-              child: GestureDetector(
-                onTap: Get.back,
-                child: Container(
-                  margin: const EdgeInsets.all(12),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                // Icon-only: 44x44 target, spoken label, tooltip.
+                child: Semantics(
+                  button: true,
+                  label: MaterialLocalizations.of(context).closeButtonLabel,
+                  child: Tooltip(
+                    message:
+                        MaterialLocalizations.of(context).closeButtonTooltip,
+                    child: InkResponse(
+                      onTap: Get.back,
+                      radius: 24,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close,
+                            color: Colors.white, size: 24),
+                      ),
+                    ),
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 24),
                 ),
               ),
             ),

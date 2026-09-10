@@ -5,11 +5,13 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:lottie/lottie.dart';
 import 'package:atlas/core/services/auth_storage.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
+import 'package:atlas/core/theme/app_motion.dart';
 import 'package:atlas/widgets/cart_fly_animation.dart';
+import 'package:atlas/widgets/animated_quantity_text.dart';
+import 'package:atlas/widgets/pressable.dart';
 
 const _kCardGreen = AppColors.green;
 
@@ -53,12 +55,9 @@ class ProductCard extends StatefulWidget {
   State<ProductCard> createState() => _ProductCardState();
 }
 
-class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin {
+class _ProductCardState extends State<ProductCard> {
   late CartController _cartCtrl;
   late FavoritesController _favCtrl;
-
-  late AnimationController _addAnim;
-  late Animation<double> _scaleAnim;
 
   final GlobalKey _cartButtonKey = GlobalKey();
 
@@ -67,40 +66,32 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
     super.initState();
     _cartCtrl = Get.find<CartController>();
     _favCtrl = Get.find<FavoritesController>();
-
-    _addAnim = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    );
-    _scaleAnim = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _addAnim, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _addAnim.dispose();
-    super.dispose();
   }
 
   // ── helpers ───────────────────────────────────────────────────────────
 
-  int get _cartIndex => _cartCtrl.cartItems.indexWhere((e) => widget.id != null ? e['id']?.toString() == widget.id : e['title'] == widget.title);
+  int get _cartIndex => _cartCtrl.cartItems.indexWhere((e) => widget.id != null
+      ? e['id']?.toString() == widget.id
+      : e['title'] == widget.title);
 
   bool get _isInCart => _cartIndex != -1;
 
-  int get _quantity => (_cartCtrl.cartItems.elementAtOrNull(_cartIndex)?['quantity'] as num?)?.toInt() ?? 0;
+  int get _quantity =>
+      (_cartCtrl.cartItems.elementAtOrNull(_cartIndex)?['quantity'] as num?)
+          ?.toInt() ??
+      0;
 
   void _addToCart() {
-    _addAnim.forward().then((_) => _addAnim.reverse());
     _cartCtrl.addItem({
       'id': widget.id,
       'title': widget.title,
       'imageUrl': widget.imageUrl,
       'price': widget.price,
     });
+    // The button has already given press feedback; the flight explains where
+    // the item went and the badge confirms it arrived. One haptic closes it.
     _flyToCart();
-    _showAddedSnackbar();
+    AppMotion.success();
   }
 
   void _flyToCart() {
@@ -110,65 +101,6 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
       context: context,
       startCenter: box.localToGlobal(box.size.center(Offset.zero)),
       imageUrl: widget.imageUrl,
-    );
-  }
-
-  void _showAddedSnackbar() {
-    if (Get.isSnackbarOpen) Get.closeCurrentSnackbar();
-    final lang = Get.locale?.languageCode ?? 'tk';
-    Get.rawSnackbar(
-      messageText: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const HugeIcon(
-              icon: HugeIcons.strokeRoundedShoppingCart01,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  lang == 'ru' ? 'Добавлено в корзину' : 'Sebede goşuldy',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Gilroy',
-                  ),
-                ),
-                Text(
-                  widget.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    fontFamily: 'Gilroy',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      backgroundColor: AppColors.greenn,
-      borderRadius: 16,
-      margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      duration: const Duration(seconds: 2),
-      snackPosition: SnackPosition.TOP,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      animationDuration: const Duration(milliseconds: 300),
     );
   }
 
@@ -219,34 +151,40 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(12)),
                   child: Container(
                     height: 140,
                     width: double.infinity,
                     color: Colors.white,
                     // padding: const EdgeInsets.all(8),
                     child: widget.imageUrl.isEmpty
-                        ? const Center(child: Icon(Icons.image, size: 40, color: Colors.grey))
+                        ? const Center(
+                            child:
+                                Icon(Icons.image, size: 40, color: Colors.grey))
                         : widget.imageUrl.startsWith('assets')
-                            ? Image.asset(widget.imageUrl, width: double.infinity, height: 140, fit: BoxFit.cover)
+                            ? Image.asset(widget.imageUrl,
+                                width: double.infinity,
+                                height: 140,
+                                fit: BoxFit.cover)
                             : CachedNetworkImage(
                                 imageUrl: widget.imageUrl,
                                 width: double.infinity,
                                 height: 140,
                                 fit: BoxFit.cover,
-                                memCacheWidth: ((widget.width ?? 170) * dpr).round(),
+                                memCacheWidth:
+                                    ((widget.width ?? 170) * dpr).round(),
                                 memCacheHeight: (140 * dpr).round(),
-                                placeholder: (_, __) => const Center(
-                                  child: SizedBox(
-                                    width: 56,
-                                    height: 56,
-                                    child: RepaintBoundary(
-                                      child: _ImageLoadingAnimation(),
-                                    ),
-                                  ),
+                                // A flat placeholder, not a Lottie: this cell
+                                // exists once per card, and a scrolling grid
+                                // was starting a fresh composition for every
+                                // image that had not landed yet.
+                                placeholder: (_, __) => const ColoredBox(
+                                  color: Color(0xFFF5F5F5),
                                 ),
                                 errorWidget: (_, __, ___) => const Center(
-                                  child: Icon(Icons.image, size: 40, color: Colors.grey),
+                                  child: Icon(Icons.image,
+                                      size: 40, color: Colors.grey),
                                 ),
                               ),
                   ),
@@ -266,7 +204,8 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
                     bottom: 10,
                     left: 10,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 5),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE53935).withOpacity(0.9),
                         borderRadius: BorderRadius.circular(8),
@@ -330,7 +269,8 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
                           Padding(
                             padding: const EdgeInsets.only(bottom: 2),
                             child: Text(
-                              widget.oldPrice!.toStringAsFixed(widget.oldPrice! % 1 == 0 ? 0 : 2),
+                              widget.oldPrice!.toStringAsFixed(
+                                  widget.oldPrice! % 1 == 0 ? 0 : 2),
                               style: const TextStyle(
                                 color: Colors.black38,
                                 fontSize: 11,
@@ -350,13 +290,30 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
                   Obx(() {
                     final inCart = _isInCart;
                     final qty = inCart ? _quantity : 0;
-                    return AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 280),
-                      transitionBuilder: (child, anim) => ScaleTransition(
-                        scale: anim,
-                        child: FadeTransition(opacity: anim, child: child),
+                    // Fixed height: the card must not resize as the control
+                    // swaps, or the whole grid reflows mid-animation.
+                    return SizedBox(
+                      height: 36,
+                      child: AnimatedSwitcher(
+                        duration: AppMotion.duration(context, AppMotion.fast),
+                        switchInCurve: AppMotion.easeOut,
+                        switchOutCurve: AppMotion.easeOut,
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: ScaleTransition(
+                            scale: Tween<double>(
+                              begin: AppMotion.enterScale,
+                              end: 1,
+                            ).animate(anim),
+                            child: child,
+                          ),
+                        ),
+                        layoutBuilder: (current, previous) => Stack(
+                          fit: StackFit.expand,
+                          children: [...previous, if (current != null) current],
+                        ),
+                        child: inCart ? _buildStepper(qty) : _buildButtons(),
                       ),
-                      child: inCart ? _buildStepper(qty) : _buildButtons(),
                     );
                   }),
                 ],
@@ -371,9 +328,8 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
   // ── Stepper [- qty +] ─────────────────────────────────────────────────
 
   Widget _buildStepper(int qty) {
-    return ScaleTransition(
+    return KeyedSubtree(
       key: const ValueKey('stepper'),
-      scale: _scaleAnim,
       child: Container(
         height: 36,
         decoration: BoxDecoration(
@@ -384,20 +340,24 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // minus
-            GestureDetector(
-              onTap: _decrement,
-              child: Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                child: const Icon(Icons.remove, color: Colors.white, size: 20),
+            Semantics(
+              button: true,
+              label: 'decrease_quantity'
+                  .trParams({'name': widget.title, 'count': '${qty - 1}'}),
+              child: Pressable(
+                onTap: _decrement,
+                child: const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Icon(Icons.remove, color: Colors.white, size: 20),
+                ),
               ),
             ),
-            // count
+            // count — the number moves, the stepper around it stays put
             Expanded(
               child: Center(
-                child: Text(
-                  '$qty',
+                child: AnimatedQuantityText(
+                  quantity: qty,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -408,13 +368,17 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
               ),
             ),
             // plus
-            GestureDetector(
-              onTap: _increment,
-              child: Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                child: const Icon(Icons.add, color: Colors.white, size: 20),
+            Semantics(
+              button: true,
+              label: 'increase_quantity'
+                  .trParams({'name': widget.title, 'count': '${qty + 1}'}),
+              child: Pressable(
+                onTap: _increment,
+                child: const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Icon(Icons.add, color: Colors.white, size: 20),
+                ),
               ),
             ),
           ],
@@ -432,37 +396,30 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
         // Favorite button
         Obx(() {
           final isFav = _favCtrl.isFavorited(widget.id, widget.title);
-          return GestureDetector(
-            onTap: () => _guardedFavorite(
-              widget.onFavoriteToggle ??
-                  () => _favCtrl.toggleFavorite({
-                        'id': widget.id,
-                        'title': widget.title,
-                        'imageUrl': widget.imageUrl,
-                        'price': widget.price,
-                        'rating': widget.rating,
-                      }),
-            ),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 37.5,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.grey.shade100,
-                  width: 1,
-                ),
+          return Semantics(
+            button: true,
+            toggled: isFav,
+            label: isFav ? 'remove_from_favorites'.tr : 'add_to_favorites'.tr,
+            child: Pressable(
+              onTap: () => _guardedFavorite(
+                widget.onFavoriteToggle ??
+                    () => _favCtrl.toggleFavorite({
+                          'id': widget.id,
+                          'title': widget.title,
+                          'imageUrl': widget.imageUrl,
+                          'price': widget.price,
+                          'rating': widget.rating,
+                        }),
               ),
-              child: Center(
-                child: isFav
-                    ? const Icon(Icons.favorite_rounded, color: Colors.red, size: 20)
-                    : const HugeIcon(
-                        icon: HugeIcons.strokeRoundedFavourite,
-                        color: _kCardGreen,
-                        size: 20,
-                      ),
+              child: Container(
+                width: 37.5,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade100, width: 1),
+                ),
+                child: Center(child: _FavoriteIcon(isFavorite: isFav)),
               ),
             ),
           );
@@ -472,21 +429,24 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
 
         // Cart / Add button
         Expanded(
-          child: GestureDetector(
-            onTap: () => _guardedCart(_addToCart),
-            child: AnimatedContainer(
-              key: _cartButtonKey,
-              duration: const Duration(milliseconds: 200),
-              height: 36,
-              decoration: BoxDecoration(
-                color: _kCardGreen,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Center(
-                child: HugeIcon(
-                  icon: HugeIcons.strokeRoundedShoppingCart01,
-                  color: Colors.white,
-                  size: 20,
+          child: Semantics(
+            button: true,
+            label: 'add_to_cart'.tr,
+            child: Pressable(
+              onTap: () => _guardedCart(_addToCart),
+              child: Container(
+                key: _cartButtonKey,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: _kCardGreen,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Center(
+                  child: HugeIcon(
+                    icon: HugeIcons.strokeRoundedShoppingCart01,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -497,17 +457,39 @@ class _ProductCardState extends State<ProductCard> with TickerProviderStateMixin
   }
 }
 
-// Shown inside the image area while the network image is still loading.
-class _ImageLoadingAnimation extends StatelessWidget {
-  const _ImageLoadingAnimation();
+/// Settles into place rather than growing from nothing, and never plays a
+/// Lottie — this sits inside a grid cell that may exist a hundred times over.
+class _FavoriteIcon extends StatelessWidget {
+  const _FavoriteIcon({required this.isFavorite});
+
+  final bool isFavorite;
 
   @override
   Widget build(BuildContext context) {
-    return Lottie.asset(
-      'assets/images/pencil_drawing_loading.json',
-      repeat: true,
-      animate: true,
-      fit: BoxFit.contain,
+    return AnimatedSwitcher(
+      duration: AppMotion.duration(context, AppMotion.fast),
+      switchInCurve: AppMotion.easeOut,
+      switchOutCurve: AppMotion.easeOut,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.92, end: 1).animate(anim),
+          child: child,
+        ),
+      ),
+      child: isFavorite
+          ? const Icon(
+              Icons.favorite_rounded,
+              key: ValueKey(true),
+              color: Colors.red,
+              size: 20,
+            )
+          : const HugeIcon(
+              key: ValueKey(false),
+              icon: HugeIcons.strokeRoundedFavourite,
+              color: _kCardGreen,
+              size: 20,
+            ),
     );
   }
 }

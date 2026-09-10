@@ -11,8 +11,9 @@ import 'package:atlas/core/services/call_api.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/orders/controllers/order_controller.dart';
 import 'package:atlas/modules/profile/views/web_view.dart';
-import 'package:atlas/widgets/app_dialogs.dart';
 import 'package:atlas/themes/colors.dart';
+import 'package:atlas/core/utils/app_log.dart';
+import 'package:atlas/widgets/order_success_overlay.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -537,7 +538,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     if (result != null) {
       if (_paymentMethod == 'online' && result.isNotEmpty) {
-        print('[Checkout] ► WebView açılıyor: $result');
+        AppLog.d('[Checkout] ► WebView açılıyor: $result');
         await Get.to(() => InfoWebViewPage(
               url: result,
               title: Get.locale?.languageCode == 'ru' ? 'Оплата' : 'Töleg',
@@ -546,18 +547,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         // WebView kapandı — ödeme yapıldı mı kontrol et
         final orderId = _orderCtrl.lastOnlineOrderId;
-        final paid = orderId != null
-            ? await _orderCtrl.checkOrderPaid(orderId)
-            : false;
+        final paid =
+            orderId != null ? await _orderCtrl.checkOrderPaid(orderId) : false;
 
         if (paid) {
           // Ödeme başarılı
           _cartCtrl.clearCart();
           Get.back();
-          AppDialogs.showTopSuccessSnackbar(
+          // Confirmed by the backend — the one place the app celebrates.
+          OrderSuccessOverlay.show(
             title: 'order_success'.tr,
             subtitle: 'order_placed_desc'.tr,
-            icon: HugeIcons.strokeRoundedShoppingBag01,
           );
         }
         // Ödeme yapılmadıysa checkout'ta kal, sepet kalır
@@ -565,10 +565,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Nakit veya URL gelmedi
         _cartCtrl.clearCart();
         Get.back();
-        AppDialogs.showTopSuccessSnackbar(
+        OrderSuccessOverlay.show(
           title: 'order_success'.tr,
           subtitle: 'order_placed_desc'.tr,
-          icon: HugeIcons.strokeRoundedShoppingBag01,
         );
       }
     } else {

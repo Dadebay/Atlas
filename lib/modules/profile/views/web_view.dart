@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/themes/colors.dart';
 import 'package:url_launcher/url_launcher_string.dart';
+import 'package:atlas/core/utils/app_log.dart';
 
 class InfoWebViewPage extends StatefulWidget {
   const InfoWebViewPage({
@@ -49,10 +49,7 @@ class _InfoWebViewPageState extends State<InfoWebViewPage> {
       }
       await launchUrlString(newUri, mode: LaunchMode.externalApplication);
     } catch (e, s) {
-      if (kDebugMode) {
-        print(e);
-        print(s);
-      }
+      AppLog.e('InfoWebViewPage.launchUrl', e, s);
     }
     return false;
   }
@@ -64,11 +61,11 @@ class _InfoWebViewPageState extends State<InfoWebViewPage> {
     if (uri == null) return NavigationActionPolicy.CANCEL;
 
     final uriString = uri.toString();
-    print('[WebView] ► navigating: $uriString');
+    AppLog.d('[WebView] ► navigating: $uriString');
 
     // Ödeme return URL'i — WebView'ı kapat
     if (_isAutoCloseUrl(uriString)) {
-      print('[WebView] ✓ ödeme return URL algılandı, kapanıyor');
+      AppLog.d('[WebView] ✓ ödeme return URL algılandı, kapanıyor');
       Get.back();
       return NavigationActionPolicy.CANCEL;
     }
@@ -88,7 +85,7 @@ class _InfoWebViewPageState extends State<InfoWebViewPage> {
 
     final uriString = uri.toString();
     if (_isAutoCloseUrl(uriString)) {
-      print('[WebView] ✓ ödeme return URL (yeni pencere), kapanıyor');
+      AppLog.d('[WebView] ✓ ödeme return URL (yeni pencere), kapanıyor');
       Get.back();
       return false;
     }
@@ -105,7 +102,7 @@ class _InfoWebViewPageState extends State<InfoWebViewPage> {
     if (url == null) return;
     final uriString = url.toString();
     if (_isAutoCloseUrl(uriString)) {
-      print('[WebView] ✓ ödeme return URL (onLoadStop), kapanıyor');
+      AppLog.d('[WebView] ✓ ödeme return URL (onLoadStop), kapanıyor');
       Get.back();
     }
   }

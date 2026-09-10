@@ -1,9 +1,8 @@
-// ignore_for_file: avoid_print
-
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:atlas/core/services/fcm_token_local_storage.dart';
+import 'package:atlas/core/utils/app_log.dart';
 
 class FcmTokenProvider {
   FcmTokenProvider();
@@ -16,7 +15,7 @@ class FcmTokenProvider {
   ValueNotifier<String?> get token => _tokenNotifier;
 
   Future<void> init() async {
-    print('FcmTokenProvider initializing...');
+    AppLog.d('FcmTokenProvider initializing...');
     await _getToken();
     _attachTokenRefreshListener();
   }
@@ -42,15 +41,15 @@ class FcmTokenProvider {
       }
       if (newToken != null) {
         if (newToken != savedToken) {
-          print('FCM new token: $newToken');
+          AppLog.d('FCM new token: $newToken');
           await _fcmTokenStorage.setToken(newToken);
           _tokenNotifier.value = newToken;
         }
       } else {
-        print('FCM token unavailable (simulator or no network)');
+        AppLog.d('FCM token unavailable (simulator or no network)');
       }
     } catch (e) {
-      print('FCM token error (non-fatal): $e');
+      AppLog.d('FCM token error (non-fatal): $e');
     }
   }
 

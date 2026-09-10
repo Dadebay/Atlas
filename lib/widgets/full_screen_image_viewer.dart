@@ -1,9 +1,8 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class FullScreenImageViewer extends StatefulWidget {
   final List<String> images;
@@ -51,8 +50,8 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
       } else {
         final position = _doubleTapDetails!.localPosition;
         _transformationController.value = Matrix4.identity()
-          ..translate(-position.dx * 1.5, -position.dy * 1.5)
-          ..scale(2.5);
+          ..translateByDouble(-position.dx * 1.5, -position.dy * 1.5, 0, 1)
+          ..scaleByDouble(2.5, 2.5, 2.5, 1);
         _isZoomed = true;
       }
     });
@@ -80,68 +79,78 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
             },
             itemBuilder: (context, index) {
               final imageUrl = widget.images[index];
-              return Hero(
-                tag: '${widget.heroTagPrefix}_$index',
-                child: GestureDetector(
-                  onDoubleTapDown: (details) => _doubleTapDetails = details,
-                  onDoubleTap: _handleDoubleTap,
-                  child: InteractiveViewer(
-                    transformationController: _transformationController,
-                    minScale: 1.0,
-                    maxScale: 5.0,
-                    onInteractionStart: (_) {
-                      // Optionally handle start
-                    },
-                    onInteractionUpdate: (details) {
-                      if (_transformationController.value.getMaxScaleOnAxis() >
-                          1.0) {
-                        if (!_isZoomed) {
-                          setState(() {
-                            _isZoomed = true;
-                          });
+              return Semantics(
+                image: true,
+                label: 'image_of_total'.trParams({
+                  'index': '${index + 1}',
+                  'total': '${widget.images.length}',
+                }),
+                child: Hero(
+                  tag: '${widget.heroTagPrefix}_$index',
+                  child: GestureDetector(
+                    onDoubleTapDown: (details) => _doubleTapDetails = details,
+                    onDoubleTap: _handleDoubleTap,
+                    child: InteractiveViewer(
+                      transformationController: _transformationController,
+                      minScale: 1.0,
+                      maxScale: 5.0,
+                      onInteractionStart: (_) {
+                        // Optionally handle start
+                      },
+                      onInteractionUpdate: (details) {
+                        if (_transformationController.value
+                                .getMaxScaleOnAxis() >
+                            1.0) {
+                          if (!_isZoomed) {
+                            setState(() {
+                              _isZoomed = true;
+                            });
+                          }
+                        } else {
+                          if (_isZoomed) {
+                            setState(() {
+                              _isZoomed = false;
+                            });
+                          }
                         }
-                      } else {
-                        if (_isZoomed) {
+                      },
+                      onInteractionEnd: (details) {
+                        if (_transformationController.value
+                                .getMaxScaleOnAxis() <=
+                            1.0) {
                           setState(() {
                             _isZoomed = false;
+                            _transformationController.value =
+                                Matrix4.identity();
                           });
                         }
-                      }
-                    },
-                    onInteractionEnd: (details) {
-                      if (_transformationController.value.getMaxScaleOnAxis() <=
-                          1.0) {
-                        setState(() {
-                          _isZoomed = false;
-                          _transformationController.value = Matrix4.identity();
-                        });
-                      }
-                    },
-                    child: Center(
-                      child: imageUrl.startsWith('assets')
-                          ? Image.asset(
-                              imageUrl,
-                              fit: BoxFit.contain,
-                            )
-                          : Image.network(
-                              imageUrl,
-                              fit: BoxFit.contain,
-                              loadingBuilder:
-                                  (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
+                      },
+                      child: Center(
+                        child: imageUrl.startsWith('assets')
+                            ? Image.asset(
+                                imageUrl,
+                                fit: BoxFit.contain,
+                              )
+                            : CachedNetworkImage(
+                                imageUrl: imageUrl,
+                                fit: BoxFit.contain,
+                                // No memCache clamp: this view exists to show the
+                                // photo at full quality. The thumbnail caches
+                                // elsewhere stay small on their own.
+                                progressIndicatorBuilder: (_, __, progress) =>
+                                    Center(
                                   child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes !=
-                                            null
-                                        ? loadingProgress
-                                                .cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
+                                    value: progress.progress,
                                     color: AppColors.green,
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                                errorWidget: (_, __, ___) => const Icon(
+                                  Icons.broken_image_outlined,
+                                  color: Colors.white54,
+                                  size: 64,
+                                ),
+                              ),
+                      ),
                     ),
                   ),
                 ),
@@ -155,6 +164,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
             left: 20,
             child: _buildActionButton(
               icon: HugeIcons.strokeRoundedArrowLeft01,
+              label: MaterialLocalizations.of(context).backButtonTooltip,
               onTap: () => Get.back(),
             ),
           ),
@@ -167,6 +177,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
               children: [
                 _buildActionButton(
                   icon: HugeIcons.strokeRoundedDownload01,
+                  label: 'download'.tr,
                   onTap: () {
                     Get.snackbar(
                       'Success',
@@ -182,6 +193,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
                 const SizedBox(width: 12),
                 _buildActionButton(
                   icon: HugeIcons.strokeRoundedShare01,
+                  label: 'share'.tr,
                   onTap: () {
                     Get.snackbar(
                       'Share',
@@ -216,7 +228,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
                       shape: BoxShape.circle,
                       color: _currentIndex == index
                           ? AppColors.green
-                          : Colors.white.withOpacity(0.3),
+                          : Colors.white.withValues(alpha: 0.3),
                     ),
                   ),
                 ),
@@ -227,20 +239,31 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
     );
   }
 
-  Widget _buildActionButton(
-      {required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.4),
-          shape: BoxShape.circle,
-        ),
-        child: HugeIcon(
-          icon: icon,
-          color: Colors.white,
-          size: 24,
+  /// Icon-only, so it needs a real 44x44 target and a spoken label — the old
+  /// bare `GestureDetector` gave it neither.
+  Widget _buildActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required String label,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: label,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 24,
+          child: Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.4),
+              shape: BoxShape.circle,
+            ),
+            child: HugeIcon(icon: icon, color: Colors.white, size: 24),
+          ),
         ),
       ),
     );

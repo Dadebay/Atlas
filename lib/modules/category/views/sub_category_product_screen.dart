@@ -16,6 +16,8 @@ import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
 import 'package:atlas/modules/search/views/search_screen.dart';
 import 'package:atlas/modules/brands/controllers/brands_controller.dart';
+import 'package:atlas/core/utils/app_log.dart';
+import 'package:atlas/widgets/filter_pill.dart';
 
 const _kGreen = AppColors.green;
 
@@ -34,7 +36,8 @@ class SubCategoryProductScreen extends StatefulWidget {
   });
 
   @override
-  State<SubCategoryProductScreen> createState() => _SubCategoryProductScreenState();
+  State<SubCategoryProductScreen> createState() =>
+      _SubCategoryProductScreenState();
 }
 
 class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
@@ -78,31 +81,36 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
       if (_selectedBrandId != null) {
         url += '&brand_id=$_selectedBrandId';
       }
-      print('[Category] GET $url');
+      AppLog.d('[Category] GET $url');
       final response = await _api.getData(url);
-      print('[Category] Status: ${response.statusCode}');
+      AppLog.d('[Category] Status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         final items = (body['data']?['items'] as List?) ?? [];
-        print('[Category] Products count: ${items.length}');
+        AppLog.d('[Category] Products count: ${items.length}');
         final lang = Get.locale?.languageCode ?? 'tk';
         if (!mounted) return;
         setState(() {
-          _products = items.whereType<Map<String, dynamic>>().map((p) => _toProductMap(p, lang)).toList();
+          _products = items
+              .whereType<Map<String, dynamic>>()
+              .map((p) => _toProductMap(p, lang))
+              .toList();
           _sortProducts();
         });
       }
     } catch (e) {
-      print('[Category] Error: $e');
+      AppLog.d('[Category] Error: $e');
     }
     if (mounted) setState(() => _isLoading = false);
   }
 
   void _sortProducts() {
     if (_selectedSort == 'low') {
-      _products.sort((a, b) => (a['price'] as double).compareTo(b['price'] as double));
+      _products.sort(
+          (a, b) => (a['price'] as double).compareTo(b['price'] as double));
     } else if (_selectedSort == 'high') {
-      _products.sort((a, b) => (b['price'] as double).compareTo(a['price'] as double));
+      _products.sort(
+          (a, b) => (b['price'] as double).compareTo(a['price'] as double));
     } else if (_selectedSort == 'discount') {
       _products.sort((a, b) {
         final da = int.tryParse(a['discount']?.toString() ?? '0') ?? 0;
@@ -122,9 +130,13 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
             ? rawImageUrl
             : ApiConstants.fileUrl(rawImageUrl);
 
-    final salePrice = double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0;
-    final discountRaw = (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0).round();
-    final oldPrice = discountRaw > 0 && salePrice > 0 ? salePrice + salePrice * discountRaw / 100 : null;
+    final salePrice =
+        double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0;
+    final discountRaw =
+        (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0).round();
+    final oldPrice = discountRaw > 0 && salePrice > 0
+        ? salePrice + salePrice * discountRaw / 100
+        : null;
     final brandName = item['brand_name']?.toString() ?? '';
 
     return {
@@ -231,7 +243,8 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
         ),
       ),
       transitionBuilder: (_, anim, __, child) => SlideTransition(
-        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
         child: child,
       ),
     );
@@ -289,7 +302,7 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
             ),
           ),
           const Spacer(),
-          _filterPill(
+          FilterPill(
             icon: HugeIcons.strokeRoundedStore01,
             label: 'brands'.tr,
             isActive: _selectedBrandId != null,
@@ -302,7 +315,7 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                 : null,
           ),
           const SizedBox(width: 8),
-          _filterPill(
+          FilterPill(
             icon: HugeIcons.strokeRoundedSlidersHorizontal,
             label: lang == 'ru' ? 'Фильтр' : 'Süzgüç',
             isActive: _selectedSort != null,
@@ -315,53 +328,6 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                 : null,
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _filterPill({
-    required IconData icon,
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    VoidCallback? onClear,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 42,
-        padding: EdgeInsets.only(left: 12, right: isActive ? 8 : 14),
-        decoration: BoxDecoration(
-          color: isActive ? _kGreen : const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            HugeIcon(
-              icon: icon,
-              color: isActive ? Colors.white : Colors.black87,
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : const Color(0xFF1D1B20),
-                fontFamily: 'Gilroy',
-              ),
-            ),
-            if (isActive && onClear != null) ...[
-              const SizedBox(width: 6),
-              GestureDetector(
-                onTap: onClear,
-                child: const Icon(Icons.close, size: 16, color: Colors.white),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -496,9 +462,15 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text('brands'.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Gilroy')),
+                      child: Text('brands'.tr,
+                          style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Gilroy')),
                     ),
-                    IconButton(onPressed: Navigator.of(ctx).pop, icon: const Icon(Icons.close, size: 22)),
+                    IconButton(
+                        onPressed: Navigator.of(ctx).pop,
+                        icon: const Icon(Icons.close, size: 22)),
                   ],
                 ),
               ),
@@ -514,7 +486,8 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                   fontWeight: FontWeight.w500,
                 ),
                 decoration: InputDecoration(
-                  hintText: lang == 'ru' ? 'Поиск брендов...' : 'Brend gözle...',
+                  hintText:
+                      lang == 'ru' ? 'Поиск брендов...' : 'Brend gözle...',
                   hintStyle: const TextStyle(
                     color: Colors.black38,
                     fontSize: 14,
@@ -528,10 +501,12 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                       size: 18,
                     ),
                   ),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  prefixIconConstraints:
+                      const BoxConstraints(minWidth: 44, minHeight: 44),
                   filled: true,
                   fillColor: const Color(0xFFF5F7FA),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Color(0xFFE8EAED)),
@@ -555,17 +530,27 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                 isHighlight: true,
                 onTap: () => setInner(() => _tempBrandId = null),
               ),
-              const Divider(height: 1, indent: 20, endIndent: 20, color: Color(0xFFE5E7EB)),
+              const Divider(
+                  height: 1,
+                  indent: 20,
+                  endIndent: 20,
+                  color: Color(0xFFE5E7EB)),
             ],
             // Brand list
             Expanded(
               child: Obx(() {
                 if (brandsController.isLoading.value) {
-                  return const Center(child: CircularProgressIndicator(color: _kGreen, strokeWidth: 2));
+                  return const Center(
+                      child: CircularProgressIndicator(
+                          color: _kGreen, strokeWidth: 2));
                 }
 
                 final query = brandQuery.trim().toLowerCase();
-                final brands = query.isEmpty ? brandsController.brands : brandsController.brands.where((b) => b.name.toLowerCase().contains(query)).toList();
+                final brands = query.isEmpty
+                    ? brandsController.brands
+                    : brandsController.brands
+                        .where((b) => b.name.toLowerCase().contains(query))
+                        .toList();
 
                 if (brands.isEmpty) {
                   return Center(
@@ -586,7 +571,11 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                 return ListView.separated(
                   padding: EdgeInsets.zero,
                   itemCount: brands.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 20, endIndent: 20, color: Color(0xFFE5E7EB)),
+                  separatorBuilder: (_, __) => const Divider(
+                      height: 1,
+                      indent: 20,
+                      endIndent: 20,
+                      color: Color(0xFFE5E7EB)),
                   itemBuilder: (_, i) {
                     final brand = brands[i];
                     final isSel = _tempBrandId == brand.id;
@@ -604,8 +593,12 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                                 ),
                                 child: Center(
                                     child: Text(
-                                  brand.name.isNotEmpty ? brand.name[0].toUpperCase() : '?',
-                                  style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold),
+                                  brand.name.isNotEmpty
+                                      ? brand.name[0].toUpperCase()
+                                      : '?',
+                                  style: const TextStyle(
+                                      color: _kGreen,
+                                      fontWeight: FontWeight.bold),
                                 )),
                               )
                             : ClipOval(
@@ -616,8 +609,12 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                                   color: _kGreen.withOpacity(0.08),
                                   child: Center(
                                       child: Text(
-                                    brand.name.isNotEmpty ? brand.name[0].toUpperCase() : '?',
-                                    style: const TextStyle(color: _kGreen, fontWeight: FontWeight.bold),
+                                    brand.name.isNotEmpty
+                                        ? brand.name[0].toUpperCase()
+                                        : '?',
+                                    style: const TextStyle(
+                                        color: _kGreen,
+                                        fontWeight: FontWeight.bold),
                                   )),
                                 ),
                               )),
@@ -648,9 +645,18 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
 
     final options = [
       (value: null as String?, label: lang == 'ru' ? 'Все' : 'Hemmesini saýla'),
-      (value: 'low', label: lang == 'ru' ? 'Цена: от дешевых' : 'Arzandan gymmada'),
-      (value: 'high', label: lang == 'ru' ? 'Цена: от дорогих' : 'Gymmatdan arzana'),
-      (value: 'discount', label: lang == 'ru' ? 'По скидке' : 'Arzanladyş boýunça'),
+      (
+        value: 'low',
+        label: lang == 'ru' ? 'Цена: от дешевых' : 'Arzandan gymmada'
+      ),
+      (
+        value: 'high',
+        label: lang == 'ru' ? 'Цена: от дорогих' : 'Gymmatdan arzana'
+      ),
+      (
+        value: 'discount',
+        label: lang == 'ru' ? 'По скидке' : 'Arzanladyş boýunça'
+      ),
     ];
 
     _showRightSheet(StatefulBuilder(
@@ -666,10 +672,15 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                         Expanded(
                           child: Text(
                             lang == 'ru' ? 'Сортировка' : 'Tertiplemek',
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Gilroy'),
+                            style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'Gilroy'),
                           ),
                         ),
-                        IconButton(onPressed: Navigator.of(ctx).pop, icon: const Icon(Icons.close, size: 22)),
+                        IconButton(
+                            onPressed: Navigator.of(ctx).pop,
+                            icon: const Icon(Icons.close, size: 22)),
                       ],
                     ),
                   ),
@@ -699,7 +710,11 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
   Widget _buildBody() {
     final lang = Get.locale?.languageCode ?? 'tk';
     final children = widget.category?.children ?? [];
-    final String activeCatName = _selectedSubIndex == -1 ? (widget.overrideTitle ?? widget.category?.localName(lang) ?? '') : (children.isNotEmpty && _selectedSubIndex < children.length ? children[_selectedSubIndex].localName(lang) : (widget.overrideTitle ?? widget.category?.localName(lang) ?? ''));
+    final String activeCatName = _selectedSubIndex == -1
+        ? (widget.overrideTitle ?? widget.category?.localName(lang) ?? '')
+        : (children.isNotEmpty && _selectedSubIndex < children.length
+            ? children[_selectedSubIndex].localName(lang)
+            : (widget.overrideTitle ?? widget.category?.localName(lang) ?? ''));
 
     if (_isLoading) {
       return const SingleChildScrollView(
@@ -721,11 +736,13 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Plays once and rests on its last frame — an empty state
+                  // has nothing more to say after the first pass.
                   Lottie.asset(
                     'assets/images/shopping-cart.json',
                     width: 180,
                     height: 180,
-                    repeat: true,
+                    repeat: false,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -789,7 +806,9 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Text(
-                  lang == 'ru' ? '— Все товары показаны —' : '— Hemmesi görkezildi —',
+                  lang == 'ru'
+                      ? '— Все товары показаны —'
+                      : '— Hemmesi görkezildi —',
                   style: const TextStyle(
                     color: Colors.black38,
                     fontSize: 13,
@@ -875,7 +894,8 @@ class _SubCategoryProductScreenState extends State<SubCategoryProductScreen> {
                   Text(
                     sub.localName(lang),
                     style: TextStyle(
-                      color: isSelected ? Colors.white : const Color(0xFF0D1B3E),
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF0D1B3E),
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       fontFamily: 'Gilroy',

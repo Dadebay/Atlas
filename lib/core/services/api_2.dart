@@ -3,10 +3,23 @@ import 'api_constants.dart';
 class Api2 {
   static String get baseUrl => ApiConstants.baseUrl;
 
-  // Authentication endpoints
+  //==================== AUTH (passwordless / OTP) ====================//
+  /// POST — asks the server to SMS a 4 digit code. Answers HTTP 201.
   static const String sendCode = 'users/send-code';
-  static const String register = 'users/register';
-  static const String login = 'users/login';
+
+  /// POST — verifies the code. Signs in, registering the phone if it is new.
+  /// Answers HTTP 201 with `{ user, accessToken }`.
+  static const String otpLogin = 'users/otp-login';
+
+  /// GET — the signed in customer. Requires the bearer token.
+  static const String me = 'users/me';
+
+  /// PATCH — updates the profile. `username` is the only writable field.
+  static const String updateUser = 'users';
+
+  /// PATCH — registers the Firebase messaging token for the customer.
+  static const String fcmToken = 'users/fcm-token';
+
   static const String upload = 'files/upload';
 
   // Brands

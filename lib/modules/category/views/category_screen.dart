@@ -13,6 +13,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/modules/brands/controllers/brands_controller.dart';
 import 'package:atlas/modules/brands/models/brand_model.dart';
 import 'package:atlas/modules/brands/views/brand_product_screen.dart';
+import 'package:atlas/core/theme/app_motion.dart';
 
 class CategoryScreen extends StatefulWidget {
   const CategoryScreen({super.key});
@@ -63,8 +64,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
         _categorySearchCtrl.clear();
         _categoryQuery = '';
       } else {
-        Future.delayed(const Duration(milliseconds: 80),
-            () => _categoryFocus.requestFocus());
+        // One frame is enough for the field to exist; waiting out the reveal
+        // would delay the keyboard for no reason.
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _categoryFocus.requestFocus());
       }
     });
   }
@@ -76,14 +79,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
         _brandSearchCtrl.clear();
         _brandQuery = '';
       } else {
-        Future.delayed(
-            const Duration(milliseconds: 80), () => _brandFocus.requestFocus());
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _brandFocus.requestFocus());
       }
     });
   }
 
   void _onTabChanged(int index) {
     if (index == _ctrl.selectedTab.value) return;
+    AppMotion.selection();
     _tabDirection = index > _ctrl.selectedTab.value ? 1 : -1;
     _ctrl.selectedTab.value = index;
     // Reset search on tab switch
@@ -239,27 +243,37 @@ class _CategoryScreenState extends State<CategoryScreen> {
               Expanded(
                 child: ClipRect(
                   child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
+                    duration: AppMotion.duration(context, AppMotion.standard),
+                    switchInCurve: AppMotion.easeOut,
+                    switchOutCurve: AppMotion.easeOut,
                     transitionBuilder: (child, animation) {
+                      final fade =
+                          FadeTransition(opacity: animation, child: child);
+                      // Reduced motion: the swap still reads, it just does not
+                      // travel.
+                      if (AppMotion.reduceMotion(context)) return fade;
+
                       final childKey = child.key as ValueKey<bool>;
                       final isIncoming = childKey.value == isCategory;
+                      // 8% of the width is enough to say "this came from the
+                      // right"; the old 25% made every switch feel like a page
+                      // turn.
+                      const travel = 0.08;
                       final beginOffset = isIncoming
-                          ? Offset(_tabDirection * 0.25, 0)
-                          : Offset(-_tabDirection * 0.25, 0);
-                      final offsetAnimation = Tween<Offset>(
-                        begin: beginOffset,
-                        end: Offset.zero,
-                      ).animate(animation);
+                          ? Offset(_tabDirection * travel, 0)
+                          : Offset(-_tabDirection * travel, 0);
                       return SlideTransition(
-                        position: offsetAnimation,
-                        child: FadeTransition(opacity: animation, child: child),
+                        position: Tween<Offset>(
+                          begin: beginOffset,
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: fade,
                       );
                     },
                     child: KeyedSubtree(
                       key: ValueKey<bool>(isCategory),
-                      child: isCategory ? _buildCategoryTab() : _buildBrandTab(),
+                      child:
+                          isCategory ? _buildCategoryTab() : _buildBrandTab(),
                     ),
                   ),
                 ),
@@ -289,31 +303,42 @@ class _CategoryScreenState extends State<CategoryScreen> {
           final segmentWidth = constraints.maxWidth / 2;
           return Stack(
             children: [
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                left: segmentWidth * selectedIndex,
+              // Fixed position; only the transform animates, so the indicator
+              // never re-lays-out the segment. Retargets from where it is if
+              // the user taps again mid-slide.
+              Positioned(
+                left: 0,
                 width: segmentWidth,
                 top: 0,
                 bottom: 0,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: segmentWidth * selectedIndex),
+                  duration: AppMotion.duration(context, AppMotion.standard),
+                  curve: AppMotion.easeInOut,
+                  builder: (context, dx, child) =>
+                      Transform.translate(offset: Offset(dx, 0), child: child),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
               Row(
                 children: [
-                  Expanded(child: _buildTabButton(0, 'categories'.tr, selectedIndex)),
-                  Expanded(child: _buildTabButton(1, 'brands'.tr, selectedIndex)),
+                  Expanded(
+                      child:
+                          _buildTabButton(0, 'categories'.tr, selectedIndex)),
+                  Expanded(
+                      child: _buildTabButton(1, 'brands'.tr, selectedIndex)),
                 ],
               ),
             ],
@@ -329,8 +354,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
       behavior: HitTestBehavior.opaque,
       onTap: () => _onTabChanged(index),
       child: AnimatedDefaultTextStyle(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
+        duration: AppMotion.standard,
+        curve: AppMotion.easeOut,
         style: TextStyle(
           color: isSelected ? Colors.black : const Color(0xFF8E8E93),
           fontSize: 14,
@@ -816,13 +841,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+              child: ExcludeSemantics(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
             ),
@@ -839,17 +866,24 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       color: Color(0xFF0D1B3E),
                     ),
                   ),
-                  GestureDetector(
-                    onTap: Get.back,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
+                  // 44x44 hit area — the old 30 px box was below both
+                  // platforms' minimum touch target.
+                  IconButton(
+                    onPressed: Get.back,
+                    iconSize: 18,
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFF3F4F6),
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.close,
-                          size: 18, color: Color(0xFF0D1B3E)),
                     ),
+                    tooltip:
+                        MaterialLocalizations.of(context).closeButtonTooltip,
+                    icon: const Icon(Icons.close, color: Color(0xFF0D1B3E)),
                   ),
                 ],
               ),
@@ -885,78 +919,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
       ),
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-    );
-  }
-}
-
-// ── Brand shimmer ──────────────────────────────────────────────────────────────
-
-class BrandShimmer extends StatefulWidget {
-  const BrandShimmer({super.key});
-
-  @override
-  State<BrandShimmer> createState() => _BrandShimmerState();
-}
-
-class _BrandShimmerState extends State<BrandShimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1100),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) {
-        final g = LinearGradient(
-          colors: const [
-            Color(0xFFE0E0E0),
-            Color(0xFFF5F5F5),
-            Color(0xFFE0E0E0),
-          ],
-          stops: const [0.1, 0.45, 0.8],
-          begin: Alignment(-2.0 + _ctrl.value * 4, 0),
-          end: Alignment(0.0 + _ctrl.value * 4, 0),
-          tileMode: TileMode.clamp,
-        );
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            childAspectRatio: 0.83,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-          ),
-          itemCount: 12,
-          itemBuilder: (_, __) => ShaderMask(
-            blendMode: BlendMode.srcATop,
-            shaderCallback: (b) => g.createShader(b),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEEEEE),
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        );
-      },
+      isDismissible: true,
+      enableDrag: true,
+      enterBottomSheetDuration: AppMotion.emphasized,
+      exitBottomSheetDuration: AppMotion.standard,
     );
   }
 }

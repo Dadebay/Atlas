@@ -9,6 +9,7 @@ import 'package:atlas/core/services/call_api.dart';
 import 'package:atlas/core/services/navigation_service.dart';
 import 'package:atlas/modules/orders/controllers/order_controller.dart';
 import 'package:atlas/widgets/app_dialogs.dart';
+import 'package:atlas/core/utils/app_log.dart';
 
 class CartController extends GetxController {
   final _api = CallApi();
@@ -29,10 +30,8 @@ class CartController extends GetxController {
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final items = (body['data']?['items'] as List?) ?? [];
-        cartItems.value = items
-            .whereType<Map<String, dynamic>>()
-            .map(_toCartItem)
-            .toList();
+        cartItems.value =
+            items.whereType<Map<String, dynamic>>().map(_toCartItem).toList();
       } else if (response.statusCode == 401) {
         cartItems.clear();
       }
@@ -57,7 +56,8 @@ class CartController extends GetxController {
     };
   }
 
-  Future<void> addItem(Map<String, dynamic> item, {int initialQuantity = 1}) async {
+  Future<void> addItem(Map<String, dynamic> item,
+      {int initialQuantity = 1}) async {
     final idStr = item['id']?.toString() ?? '';
     final productId = int.tryParse(idStr);
     if (productId == null) return;
@@ -68,7 +68,8 @@ class CartController extends GetxController {
     if (existingIdx != -1) {
       final currentQty =
           (cartItems[existingIdx]['quantity'] as num?)?.toInt() ?? 1;
-      await _patchQuantity(productId, currentQty + initialQuantity, existingIdx);
+      await _patchQuantity(
+          productId, currentQty + initialQuantity, existingIdx);
     } else {
       // Optimistic add
       cartItems.add({
@@ -195,7 +196,8 @@ class FavoritesController extends GetxController {
           final salePrice =
               double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0;
           final discountRaw =
-              (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0).round();
+              (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0)
+                  .round();
           final oldPrice = discountRaw > 0 && salePrice > 0
               ? salePrice + salePrice * discountRaw / 100
               : null;
@@ -261,9 +263,7 @@ class FavoritesController extends GetxController {
     try {
       final endpoint =
           wasLiked ? 'products/unlike/$numericId' : 'products/like/$numericId';
-      print('[Like] POST $endpoint (wasLiked=$wasLiked, id=$numericId)');
       final response = await _api.postData({}, endpoint);
-      print('[Like] Response: ${response.statusCode} ${response.body}');
       if (response.statusCode == 401) {
         _revert(wasLiked, item, id!);
         likedProducts.clear();
@@ -272,41 +272,51 @@ class FavoritesController extends GetxController {
         AppDialogs.showLoginRequiredSnackbar();
         NavigationService.goToLogin();
       } else if (response.statusCode != 200 && response.statusCode != 201) {
-        print('[Like] Failed — reverting local state');
         _revert(wasLiked, item, id!);
       }
     } catch (e) {
-      print('[Like] Error: $e — reverting local state');
+      AppLog.e('FavoritesController.toggleFavorite', e);
       _revert(wasLiked, item, id!);
     }
   }
 
-  // Called from FavoritesScreen after exit animation completes
+  // Called from FavoritesScreen once the card's exit animation has finished.
+  //
+  // Optimistic: the card is already gone from the screen, so a failure has to
+  // put it back exactly where it was rather than appending it to the end of
+  // the grid, which would look like a different product appearing.
   Future<void> removeFromFavorites(Map<String, dynamic> item) async {
     final id = item['id']?.toString();
     if (id == null) return;
     final numericId = int.tryParse(id);
 
+    final previousIndex =
+        likedProducts.indexWhere((p) => p['id'].toString() == id);
     likedProducts.removeWhere((p) => p['id'].toString() == id);
     favoriteItems.removeWhere((e) => e['id'].toString() == id);
 
     if (numericId == null) return;
+
+    void restore() {
+      final index = previousIndex < 0
+          ? likedProducts.length
+          : previousIndex.clamp(0, likedProducts.length);
+      likedProducts.insert(index, item);
+      favoriteItems.add({'id': item['id'], 'title': item['title']});
+    }
+
     try {
-      print('[Like] POST products/unlike/$numericId (favorites remove)');
       final response = await _api.postData({}, 'products/unlike/$numericId');
-      print('[Like] Response: ${response.statusCode} ${response.body}');
       if (response.statusCode == 401) {
         AuthStorage().clear();
         AppDialogs.showLoginRequiredSnackbar();
         NavigationService.goToLogin();
       } else if (response.statusCode != 200 && response.statusCode != 201) {
-        likedProducts.add(item);
-        favoriteItems.add({'id': item['id'], 'title': item['title']});
+        restore();
       }
     } catch (e) {
-      print('[Like] Error: $e');
-      likedProducts.add(item);
-      favoriteItems.add({'id': item['id'], 'title': item['title']});
+      AppLog.e('FavoritesController.removeFromFavorites', e);
+      restore();
     }
   }
 

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/core/services/call_api.dart';
+import 'package:atlas/core/utils/app_log.dart';
 
 class HelpSupportPage extends StatefulWidget {
   const HelpSupportPage({super.key});
@@ -32,7 +33,7 @@ class _HelpSupportPageState extends State<HelpSupportPage> {
     try {
       final response = await _api.getData('faqs');
       // ignore: avoid_print
-      print(
+      AppLog.d(
           '[FAQ API] Status Code: ${response.statusCode}, Body: ${response.body}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);

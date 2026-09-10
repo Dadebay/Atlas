@@ -9,6 +9,6 @@ class NavigationService {
   }
 
   static void goToLogin() {
-    if (_loginBuilder != null) Get.to(_loginBuilder!);
+    if (_loginBuilder != null) Get.to(_loginBuilder!, routeName: '/auth/phone');
   }
 }

@@ -14,19 +14,33 @@ import 'package:atlas/widgets/cart_fly_animation.dart';
 class MainScreen extends GetView<MainController> {
   const MainScreen({super.key});
 
+  /// Built once as consts so the IndexedStack children keep their identity —
+  /// and therefore their state and scroll offsets — across every rebuild.
+  static const List<Widget> _tabs = [
+    HomeScreen(),
+    CategoryScreen(),
+    CartScreen(),
+    FavoritesScreen(),
+    ProfileScreen(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Obx(() => IndexedStack(
-            index: controller.currentIndex.value,
-            children: const [
-              HomeScreen(),
-              CategoryScreen(),
-              CartScreen(),
-              FavoritesScreen(),
-              ProfileScreen(),
-            ],
-          )),
+      body: Obx(() {
+        final index = controller.currentIndex.value;
+        // IndexedStack keeps every tab alive so scroll position and state
+        // survive a switch — but alive also meant *ticking*: shimmer and Lottie
+        // in a hidden tab kept driving frames. TickerMode mutes the tickers of
+        // the tabs that are off screen without rebuilding or re-keying them.
+        return IndexedStack(
+          index: index,
+          children: [
+            for (var i = 0; i < _tabs.length; i++)
+              TickerMode(enabled: i == index, child: _tabs[i]),
+          ],
+        );
+      }),
       bottomNavigationBar: Obx(() {
         // Only currentIndex drives this rebuild — the cart badge count is
         // read reactively inside AnimatedBottomNavBar's own Obx, so a cart
@@ -46,7 +60,8 @@ class MainScreen extends GetView<MainController> {
             NavBarItemData(
               icon: HugeIcons.strokeRoundedShoppingCart01,
               label: 'cart'.tr,
-              badgeCountGetter: () => Get.find<CartController>().cartItems.length,
+              badgeCountGetter: () =>
+                  Get.find<CartController>().cartItems.length,
               iconKey: CartFlyAnimation.cartIconKey,
             ),
             NavBarItemData(

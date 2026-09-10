@@ -1,9 +1,8 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
+import 'package:atlas/core/theme/app_motion.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dart';
 import 'package:atlas/modules/product_detail/views/product_detail_screen.dart';
@@ -17,12 +16,16 @@ class FavoritesScreen extends StatefulWidget {
   State<FavoritesScreen> createState() => _FavoritesScreenState();
 }
 
-class _FavoritesScreenState extends State<FavoritesScreen>
-    with TickerProviderStateMixin {
+class _FavoritesScreenState extends State<FavoritesScreen> {
   late final FavoritesController _ctrl;
 
-  // Per-card animation controllers keyed by product id
-  final Map<String, AnimationController> _anims = {};
+  /// Ids currently playing their exit. This replaced a map of per-card
+  /// `AnimationController`s that grew with every removal and was only ever
+  /// disposed when the whole screen went away — a set of strings costs nothing
+  /// and is emptied as each card leaves.
+  final Set<String> _removingIds = <String>{};
+
+  static const Duration _exitDuration = AppMotion.fast;
 
   @override
   void initState() {
@@ -30,30 +33,21 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     _ctrl = Get.find<FavoritesController>();
   }
 
-  @override
-  void dispose() {
-    for (final c in _anims.values) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  AnimationController _animFor(String id) {
-    return _anims.putIfAbsent(
-      id,
-      () => AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 320),
-      ),
-    );
-  }
-
   Future<void> _unlike(Map<String, dynamic> product) async {
     final id = product['id']?.toString() ?? '';
-    final anim = _animFor(id);
-    if (anim.isAnimating) return;
-    // Play exit animation to completion, then remove
-    await anim.forward();
+    if (id.isEmpty || _removingIds.contains(id)) return;
+
+    if (AppMotion.reduceMotion(context)) {
+      _ctrl.removeFromFavorites(product);
+      return;
+    }
+
+    setState(() => _removingIds.add(id));
+    // The card stays in the model for exactly as long as its exit runs, so the
+    // grid does not reflow underneath the animation.
+    await Future<void>.delayed(_exitDuration);
+    if (!mounted) return;
+    setState(() => _removingIds.remove(id));
     _ctrl.removeFromFavorites(product);
   }
 
@@ -78,81 +72,92 @@ class _FavoritesScreenState extends State<FavoritesScreen>
         surfaceTintColor: Colors.white,
       ),
       body: Obx(() {
-        // First load — shimmer
-        if (_ctrl.isLoading.value && _ctrl.likedProducts.isEmpty) {
-          return const SingleChildScrollView(
-            physics: NeverScrollableScrollPhysics(),
-            child: ProductCardShimmerGrid(),
-          );
-        }
+        return AnimatedSwitcher(
+          duration: AppMotion.duration(context, AppMotion.standard),
+          switchInCurve: AppMotion.easeOut,
+          switchOutCurve: AppMotion.easeOut,
+          child: _buildBody(context),
+        );
+      }),
+    );
+  }
 
-        // Empty state
-        if (_ctrl.likedProducts.isEmpty) {
-          return RefreshIndicator(
-            onRefresh: _ctrl.fetchLikedProducts,
-            color: AppColors.green,
-            backgroundColor: Colors.white,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: MediaQuery.of(context).size.height - 160,
-                child: _buildEmptyState(),
+  Widget _buildBody(BuildContext context) {
+    // First load — shimmer
+    if (_ctrl.isLoading.value && _ctrl.likedProducts.isEmpty) {
+      return const SingleChildScrollView(
+        key: ValueKey('loading'),
+        physics: NeverScrollableScrollPhysics(),
+        child: ProductCardShimmerGrid(),
+      );
+    }
+
+    // Empty state
+    if (_ctrl.likedProducts.isEmpty) {
+      return RefreshIndicator(
+        key: const ValueKey('empty'),
+        onRefresh: _ctrl.fetchLikedProducts,
+        color: AppColors.green,
+        backgroundColor: Colors.white,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height - 160,
+            child: _buildEmptyState(),
+          ),
+        ),
+      );
+    }
+
+    // Grid with cards
+    return RefreshIndicator(
+      key: const ValueKey('grid'),
+      onRefresh: _ctrl.fetchLikedProducts,
+      color: AppColors.green,
+      backgroundColor: Colors.white,
+      child: GridView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        physics: const AlwaysScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisExtent: 258,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: _ctrl.likedProducts.length,
+        itemBuilder: (context, index) {
+          final product = _ctrl.likedProducts[index];
+          final id = product['id']?.toString() ?? '';
+          final leaving = _removingIds.contains(id);
+
+          // A short settle out, not a 320 ms easeIn shrink that made the
+          // tap feel like it had not registered.
+          return AnimatedScale(
+            scale: leaving ? AppMotion.enterScale : 1,
+            duration: _exitDuration,
+            curve: AppMotion.easeOut,
+            child: AnimatedOpacity(
+              opacity: leaving ? 0 : 1,
+              duration: _exitDuration,
+              curve: AppMotion.easeOut,
+              child: ProductCard(
+                id: product['id'],
+                title: product['title'] as String,
+                imageUrl: product['imageUrl'] as String,
+                price: (product['price'] as num).toDouble(),
+                oldPrice: (product['oldPrice'] as num?)?.toDouble(),
+                discount: product['discount'] as String?,
+                rating: (product['rating'] ?? 0.0) as double,
+                onTap: () => Get.to(
+                  () => ProductDetailScreen(id: product['id']),
+                  binding: ProductDetailBinding(),
+                ),
+                onFavoriteToggle: () => _unlike(product),
               ),
             ),
           );
-        }
-
-        // Grid with cards
-        return RefreshIndicator(
-          onRefresh: _ctrl.fetchLikedProducts,
-          color: AppColors.green,
-          backgroundColor: Colors.white,
-          child: GridView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            physics: const AlwaysScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisExtent: 258,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: _ctrl.likedProducts.length,
-            itemBuilder: (context, index) {
-              final product = _ctrl.likedProducts[index];
-              final id = product['id']?.toString() ?? '';
-              final anim = _animFor(id);
-
-              return AnimatedBuilder(
-                animation: anim,
-                builder: (_, child) {
-                  final t = Curves.easeIn.transform(anim.value);
-                  return Transform.scale(
-                    scale: 1.0 - (t * 0.22),
-                    child: Opacity(
-                      opacity: (1.0 - t).clamp(0.0, 1.0),
-                      child: child,
-                    ),
-                  );
-                },
-                child: ProductCard(
-                  id: product['id'],
-                  title: product['title'] as String,
-                  imageUrl: product['imageUrl'] as String,
-                  price: (product['price'] as num).toDouble(),
-                  oldPrice: (product['oldPrice'] as num?)?.toDouble(),
-                  discount: product['discount'] as String?,
-                  rating: (product['rating'] ?? 0.0) as double,
-                  onTap: () => Get.to(
-                    () => ProductDetailScreen(id: product['id']),
-                    binding: ProductDetailBinding(),
-                  ),
-                  onFavoriteToggle: () => _unlike(product),
-                ),
-              );
-            },
-          ),
-        );
-      }),
+        },
+      ),
     );
   }
 
@@ -164,9 +169,12 @@ class _FavoritesScreenState extends State<FavoritesScreen>
           SizedBox(
             width: 100,
             height: 100,
+            // Plays once and holds its last frame — an empty state has nothing
+            // left to say after the first pass, and a hidden tab should not be
+            // paying for a loop.
             child: Lottie.asset(
               'assets/images/like.json',
-              repeat: true,
+              repeat: false,
               animate: true,
             ),
           ),

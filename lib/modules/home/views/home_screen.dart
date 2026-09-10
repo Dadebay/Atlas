@@ -17,6 +17,8 @@ import 'package:atlas/modules/brands/controllers/brands_controller.dart';
 import 'package:atlas/core/services/catalog_service.dart';
 import 'package:atlas/core/services/api_constants.dart';
 import 'package:atlas/widgets/product_card_shimmer.dart';
+import 'package:atlas/shared/connection_error_view.dart';
+import 'package:atlas/widgets/shimmer.dart';
 import 'package:atlas/modules/category/controllers/category_controller.dart';
 import 'package:atlas/modules/category/models/category_model.dart';
 import 'package:atlas/modules/category/views/sub_category_product_screen.dart';
@@ -29,9 +31,15 @@ class HomeScreen extends GetView<HomeController> {
     Get.find<CartController>();
     Get.find<MainController>();
     final categoryCtrl = Get.find<CategoryController>();
-    final brandsController = Get.isRegistered<BrandsController>() ? Get.find<BrandsController>() : Get.put(BrandsController());
+    final brandsController = Get.find<BrandsController>();
     // 2.3 kart görünür: 2 tam + 3. kartın peek'i
     final cardWidth = (MediaQuery.of(context).size.width - 24) / 2.15;
+
+    Future<void> reloadEverything() => Future.wait([
+          controller.refreshData(),
+          brandsController.fetchBrands(),
+          categoryCtrl.fetchCategories(),
+        ]);
 
     final cartCtrl = Get.find<CartController>();
     void addToCart(String title, String imageUrl, double price, String? id) {
@@ -54,244 +62,112 @@ class HomeScreen extends GetView<HomeController> {
         centerTitle: false,
         titleSpacing: 15,
         title: Image.asset(
-          'assets/images/logo.png',
+          'assets/images/logo2.png',
           height: 50,
           errorBuilder: (_, __, ___) => const Text(
             'Atlas',
-            style: TextStyle(color: AppColors.green, fontWeight: FontWeight.bold),
+            style:
+                TextStyle(color: AppColors.green, fontWeight: FontWeight.bold),
           ),
         ),
         actions: const [PremiumSearchButton()],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await Future.wait([
-            controller.refreshData(),
-            brandsController.fetchBrands(),
-            categoryCtrl.fetchCategories(),
-          ]);
-        },
-        color: AppColors.green,
-        backgroundColor: Colors.white,
-        strokeWidth: 3.0,
-        displacement: 60,
-        child: SingleChildScrollView(
+      // Only `showConnectionError` is read here, and it flips just twice in a
+      // session at most — so this Obx does not rebuild the page on every
+      // pagination batch the way one reading the product list would.
+      body: Obx(() {
+        if (controller.showConnectionError.value) {
+          return ConnectionErrorView(onRetry: reloadEverything);
+        }
+        return _buildFeed(
+          categoryCtrl: categoryCtrl,
+          cardWidth: cardWidth,
+          addToCart: addToCart,
+          onRefresh: reloadEverything,
+        );
+      }),
+    );
+  }
+
+  Widget _buildFeed({
+    required CategoryController categoryCtrl,
+    required double cardWidth,
+    required void Function(String, String, double, String?) addToCart,
+    required Future<void> Function() onRefresh,
+  }) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.green,
+      backgroundColor: Colors.white,
+      strokeWidth: 3.0,
+      displacement: 60,
+      // One scrollable, one viewport. Everything below is a sliver, so only
+      // the cards inside the viewport (plus its cache extent) are ever built
+      // — the old shrink-wrapped GridView had to lay out every loaded page.
+      //
+      // The ShimmerScope gives the discount rail, the new-products rail and
+      // the grid a single shared ticker while they are loading, and stops it
+      // entirely once the last skeleton is gone.
+      child: ShimmerScope(
+        child: CustomScrollView(
           controller: controller.scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ─── Banner ────────────────────────────────────────────────
-              const BannerCarousel(),
+          slivers: [
+            const SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  BannerCarousel(),
+                  SizedBox(height: 14),
+                ],
+              ),
+            ),
 
-              // ─── Categories grid ───────────────────────────────────────
-              const SizedBox(height: 14),
+            // ─── Categories ────────────────────────────────────────────────
+            _buildCategoriesSliver(categoryCtrl),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-              _buildCategoriesSection(categoryCtrl),
-              const SizedBox(height: 8),
+            // ─── Discounts ─────────────────────────────────────────────────
+            _buildHorizontalSection(
+              isLoading: () => controller.isLoadingDiscount.value,
+              products: () => controller.discountProducts,
+              title: 'discounts'.tr,
+              onSeeAll: () => Get.to(() => SubCategoryProductScreen(
+                    overrideTitle: 'discounts'.tr,
+                    isDiscount: true,
+                  )),
+              cardWidth: cardWidth,
+              addToCart: addToCart,
+            ),
 
-              Obx(() {
-                if (controller.isLoadingDiscount.value) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader(
-                        'discounts'.tr,
-                        () => Get.to(() => SubCategoryProductScreen(overrideTitle: 'discounts'.tr, isDiscount: true)),
-                      ),
-                      const SizedBox(height: 7),
-                      const SizedBox(height: 258, child: ProductCardShimmerList()),
-                      const SizedBox(height: 20),
-                    ],
-                  );
-                }
-                if (controller.discountProducts.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-                final discountCatNames = controller.discountProducts.map((p) => (p['categoryName'] as String?)?.isNotEmpty == true ? p['categoryName'] as String : CatalogService.to.categoryName(p['categoryId'] as int?)).toList();
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader(
-                      'discounts'.tr,
-                      () => Get.to(() => SubCategoryProductScreen(overrideTitle: 'discounts'.tr, isDiscount: true)),
-                    ),
-                    const SizedBox(height: 7),
-                    SizedBox(
-                      height: 258,
-                      child: ListView.builder(
-                        primary: false,
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        itemCount: controller.discountProducts.length,
-                        itemBuilder: (context, index) {
-                          final product = controller.discountProducts[index];
-                          final price = (product['price'] as num).toDouble();
-                          final isLast = index == controller.discountProducts.length - 1;
-                          return Padding(
-                            padding: EdgeInsets.only(right: isLast ? 0 : 12),
-                            child: ProductCard(
-                              id: product['id'],
-                              width: cardWidth,
-                              title: product['title'] as String,
-                              imageUrl: product['imageUrl'] as String,
-                              price: price,
-                              oldPrice: (product['oldPrice'] as num?)?.toDouble(),
-                              discount: product['discount'] as String?,
-                              brandName: product['brandName'] as String?,
-                              categoryName: discountCatNames[index],
-                              onTap: () => Get.to(
-                                () => ProductDetailScreen(id: product['id'] as String?),
-                                binding: ProductDetailBinding(),
-                              ),
-                              onCartPressed: () => addToCart(
-                                product['title'] as String,
-                                product['imageUrl'] as String,
-                                price,
-                                product['id'] as String?,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                );
-              }),
+            // ─── New products ──────────────────────────────────────────────
+            _buildHorizontalSection(
+              isLoading: () => controller.isLoadingNew.value,
+              products: () => controller.newProducts,
+              title: 'new_products'.tr,
+              onSeeAll: () => Get.to(() => SubCategoryProductScreen(
+                    overrideTitle: 'new_products'.tr,
+                    isNew: true,
+                  )),
+              cardWidth: cardWidth,
+              addToCart: addToCart,
+            ),
 
-              // ─── New products ──────────────────────────────────────────
-              Obx(() {
-                if (controller.isLoadingNew.value) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader(
-                        'new_products'.tr,
-                        () => Get.to(() => SubCategoryProductScreen(overrideTitle: 'new_products'.tr, isNew: true)),
-                      ),
-                      const SizedBox(height: 7),
-                      const SizedBox(height: 258, child: ProductCardShimmerList()),
-                      const SizedBox(height: 20),
-                    ],
-                  );
-                }
-                if (controller.newProducts.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-                final newCatNames = controller.newProducts.map((p) => (p['categoryName'] as String?)?.isNotEmpty == true ? p['categoryName'] as String : CatalogService.to.categoryName(p['categoryId'] as int?)).toList();
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionHeader(
-                      'new_products'.tr,
-                      () => Get.to(() => SubCategoryProductScreen(overrideTitle: 'new_products'.tr, isNew: true)),
-                    ),
-                    const SizedBox(height: 7),
-                    SizedBox(
-                      height: 258,
-                      child: ListView.builder(
-                        primary: false,
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        itemCount: controller.newProducts.length,
-                        itemBuilder: (context, index) {
-                          final product = controller.newProducts[index];
-                          final price = (product['price'] as num).toDouble();
-                          final isLast = index == controller.newProducts.length - 1;
-                          return Padding(
-                            padding: EdgeInsets.only(right: isLast ? 0 : 12),
-                            child: ProductCard(
-                              id: product['id'],
-                              width: cardWidth,
-                              title: product['title'] as String,
-                              imageUrl: product['imageUrl'] as String,
-                              price: price,
-                              oldPrice: (product['oldPrice'] as num?)?.toDouble(),
-                              discount: product['discount'] as String?,
-                              brandName: product['brandName'] as String?,
-                              categoryName: newCatNames[index],
-                              onTap: () => Get.to(
-                                () => ProductDetailScreen(id: product['id'] as String?),
-                                binding: ProductDetailBinding(),
-                              ),
-                              onCartPressed: () => addToCart(
-                                product['title'] as String,
-                                product['imageUrl'] as String,
-                                price,
-                                product['id'] as String?,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                );
-              }),
+            // ─── Remaining / All products grid ─────────────────────────────
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader('all_products'.tr, null),
+                  const SizedBox(height: 7),
+                ],
+              ),
+            ),
+            _buildAllProductsSliver(addToCart),
 
-              // ─── Remaining / All products grid ─────────────────────────
-              _buildSectionHeader('all_products'.tr, null),
-              const SizedBox(height: 7),
-              Obx(() {
-                if (controller.isLoadingAll.value) {
-                  return const ProductCardShimmerGrid(
-                    mainAxisExtent: 260,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    gridPadding: EdgeInsets.symmetric(horizontal: 8),
-                  );
-                }
-                final shownIds = {
-                  ...controller.discountProducts.map((p) => p['id']),
-                  ...controller.newProducts.map((p) => p['id']),
-                };
-                final remaining = controller.allProducts.where((p) => !shownIds.contains(p['id'])).toList();
-                if (remaining.isEmpty) return const SizedBox.shrink();
-                final catNames = remaining.map((p) => (p['categoryName'] as String?)?.isNotEmpty == true ? p['categoryName'] as String : CatalogService.to.categoryName(p['categoryId'] as int?)).toList();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: GridView.builder(
-                    primary: false,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: remaining.length,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
-                      mainAxisExtent: 260,
-                    ),
-                    itemBuilder: (context, index) {
-                      final product = remaining[index];
-                      final price = (product['price'] as num).toDouble();
-                      return ProductCard(
-                        id: product['id'],
-                        title: product['title'] as String,
-                        imageUrl: product['imageUrl'] as String,
-                        price: price,
-                        oldPrice: (product['oldPrice'] as num?)?.toDouble(),
-                        discount: product['discount'] as String?,
-                        brandName: product['brandName'] as String?,
-                        categoryName: catNames[index],
-                        onTap: () => Get.to(
-                          () => ProductDetailScreen(id: product['id'] as String?),
-                          binding: ProductDetailBinding(),
-                        ),
-                        onCartPressed: () => addToCart(
-                          product['title'] as String,
-                          product['imageUrl'] as String,
-                          price,
-                          product['id'] as String?,
-                        ),
-                      );
-                    },
-                  ),
-                );
-              }),
-              // ─── Infinite-scroll footer loader ─────────────────────────
-              Obx(() {
+            // ─── Infinite-scroll footer loader ─────────────────────────────
+            SliverToBoxAdapter(
+              child: Obx(() {
                 if (!controller.isLoadingMoreAll.value) {
                   return const SizedBox.shrink();
                 }
@@ -309,41 +185,184 @@ class HomeScreen extends GetView<HomeController> {
                   ),
                 );
               }),
-              const SizedBox(height: 40),
-            ],
-          ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 40)),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCategoriesSection(CategoryController categoryCtrl) {
-    final lang = Get.locale?.languageCode ?? 'tk';
-    return Obx(() {
-      final cats = categoryCtrl.categories;
-      if (categoryCtrl.isLoading.value) {
+  /// One horizontal product rail. Its height is fixed, so a box adapter costs
+  /// nothing — the `ListView.builder` inside is still lazy along its own axis.
+  Widget _buildHorizontalSection({
+    required bool Function() isLoading,
+    required List<Map<String, dynamic>> Function() products,
+    required String title,
+    required VoidCallback onSeeAll,
+    required double cardWidth,
+    required void Function(String, String, double, String?) addToCart,
+  }) {
+    return SliverToBoxAdapter(
+      child: Obx(() {
+        if (isLoading()) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildSectionHeader(title, onSeeAll),
+              const SizedBox(height: 7),
+              const SizedBox(height: 258, child: ProductCardShimmerList()),
+              const SizedBox(height: 20),
+            ],
+          );
+        }
+
+        final items = products();
+        if (items.isEmpty) return const SizedBox.shrink();
+
+        final catNames = items
+            .map((p) => (p['categoryName'] as String?)?.isNotEmpty == true
+                ? p['categoryName'] as String
+                : CatalogService.to.categoryName(p['categoryId'] as int?))
+            .toList();
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                lang == 'ru' ? 'Разделы' : 'Bölümler',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Gilroy',
-                  letterSpacing: -0.5,
-                ),
+            _buildSectionHeader(title, onSeeAll),
+            const SizedBox(height: 7),
+            SizedBox(
+              height: 258,
+              child: ListView.builder(
+                // The vertical CustomScrollView owns the PrimaryScrollController.
+                primary: false,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final product = items[index];
+                  final price = (product['price'] as num).toDouble();
+                  final isLast = index == items.length - 1;
+                  return Padding(
+                    padding: EdgeInsets.only(right: isLast ? 0 : 12),
+                    child: ProductCard(
+                      id: product['id'],
+                      width: cardWidth,
+                      title: product['title'] as String,
+                      imageUrl: product['imageUrl'] as String,
+                      price: price,
+                      oldPrice: (product['oldPrice'] as num?)?.toDouble(),
+                      discount: product['discount'] as String?,
+                      brandName: product['brandName'] as String?,
+                      categoryName: catNames[index],
+                      onTap: () => Get.to(
+                        () => ProductDetailScreen(id: product['id'] as String?),
+                        binding: ProductDetailBinding(),
+                      ),
+                      onCartPressed: () => addToCart(
+                        product['title'] as String,
+                        product['imageUrl'] as String,
+                        price,
+                        product['id'] as String?,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            const SizedBox(height: 12),
-            Padding(
+            const SizedBox(height: 20),
+          ],
+        );
+      }),
+    );
+  }
+
+  /// The long tail of the page — the only part that grows without bound, and
+  /// therefore the one that has to be a real lazy `SliverGrid`.
+  Widget _buildAllProductsSliver(
+    void Function(String, String, double, String?) addToCart,
+  ) {
+    return Obx(() {
+      if (controller.isLoadingAll.value) {
+        return const SliverProductCardShimmerGrid(
+          mainAxisExtent: 260,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          gridPadding: EdgeInsets.symmetric(horizontal: 8),
+        );
+      }
+
+      final shownIds = {
+        ...controller.discountProducts.map((p) => p['id']),
+        ...controller.newProducts.map((p) => p['id']),
+      };
+      final remaining = controller.allProducts
+          .where((p) => !shownIds.contains(p['id']))
+          .toList();
+      if (remaining.isEmpty) {
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      }
+
+      final catNames = remaining
+          .map((p) => (p['categoryName'] as String?)?.isNotEmpty == true
+              ? p['categoryName'] as String
+              : CatalogService.to.categoryName(p['categoryId'] as int?))
+          .toList();
+
+      return SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        sliver: SliverGrid.builder(
+          itemCount: remaining.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            mainAxisExtent: 260,
+          ),
+          itemBuilder: (context, index) {
+            final product = remaining[index];
+            final price = (product['price'] as num).toDouble();
+            return ProductCard(
+              id: product['id'],
+              title: product['title'] as String,
+              imageUrl: product['imageUrl'] as String,
+              price: price,
+              oldPrice: (product['oldPrice'] as num?)?.toDouble(),
+              discount: product['discount'] as String?,
+              brandName: product['brandName'] as String?,
+              categoryName: catNames[index],
+              onTap: () => Get.to(
+                () => ProductDetailScreen(id: product['id'] as String?),
+                binding: ProductDetailBinding(),
+              ),
+              onCartPressed: () => addToCart(
+                product['title'] as String,
+                product['imageUrl'] as String,
+                price,
+                product['id'] as String?,
+              ),
+            );
+          },
+        ),
+      );
+    });
+  }
+
+  Widget _buildCategoriesSliver(CategoryController categoryCtrl) {
+    final lang = Get.locale?.languageCode ?? 'tk';
+    final sectionTitle = lang == 'ru' ? 'Разделы' : 'Bölümler';
+
+    return Obx(() {
+      final cats = categoryCtrl.categories;
+
+      if (categoryCtrl.isLoading.value) {
+        return SliverMainAxisGroup(
+          slivers: [
+            SliverToBoxAdapter(child: _buildCategoriesHeader(sectionTitle)),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GridView.builder(
-                primary: false,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
+              sliver: SliverGrid.builder(
                 itemCount: 8,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 4,
@@ -351,55 +370,24 @@ class HomeScreen extends GetView<HomeController> {
                   mainAxisSpacing: 0,
                   childAspectRatio: 0.75,
                 ),
-                itemBuilder: (_, __) => Column(
-                  children: [
-                    Container(
-                      height: 70,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      height: 10,
-                      width: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ],
-                ),
+                itemBuilder: (_, __) => const _CategoryPlaceholder(),
               ),
             ),
           ],
         );
       }
-      if (cats.isEmpty) return const SizedBox.shrink();
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              lang == 'ru' ? 'Разделы' : 'Bölümler',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                fontFamily: 'Gilroy',
-                letterSpacing: -0.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Padding(
+      if (cats.isEmpty) {
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      }
+
+      return SliverMainAxisGroup(
+        slivers: [
+          SliverToBoxAdapter(child: _buildCategoriesHeader(sectionTitle)),
+          const SliverToBoxAdapter(child: SizedBox(height: 5)),
+          SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: GridView.builder(
-              primary: false,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+            sliver: SliverGrid.builder(
               itemCount: cats.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 4,
@@ -415,14 +403,34 @@ class HomeScreen extends GetView<HomeController> {
     });
   }
 
+  Widget _buildCategoriesHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'Gilroy',
+          letterSpacing: -0.5,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCategoryCard(CategoryModel cat, String lang) {
-    final imgUrl = cat.imageSmall.isNotEmpty ? (cat.imageSmall.startsWith('http') ? cat.imageSmall : ApiConstants.fileUrl(cat.imageSmall)) : (cat.imageLarge.isNotEmpty ? (cat.imageLarge.startsWith('http') ? cat.imageLarge : ApiConstants.fileUrl(cat.imageLarge)) : '');
+    final imgUrl = cat.imageSmall.isNotEmpty
+        ? (cat.imageSmall.startsWith('http')
+            ? cat.imageSmall
+            : ApiConstants.fileUrl(cat.imageSmall))
+        : (cat.imageLarge.isNotEmpty
+            ? (cat.imageLarge.startsWith('http')
+                ? cat.imageLarge
+                : ApiConstants.fileUrl(cat.imageLarge))
+            : '');
 
     return GestureDetector(
-      onTap: () => Get.to(
-        () => SubCategoryProductScreen(category: cat),
-        transition: Transition.cupertino,
-      ),
+      onTap: () => Get.to(() => SubCategoryProductScreen(category: cat)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -435,7 +443,8 @@ class HomeScreen extends GetView<HomeController> {
             ),
             padding: const EdgeInsets.all(8),
             child: imgUrl.isEmpty
-                ? const Icon(Icons.category_outlined, color: AppColors.green, size: 32)
+                ? const Icon(Icons.category_outlined,
+                    color: AppColors.green, size: 32)
                 : CachedNetworkImage(
                     imageUrl: imgUrl,
                     fit: BoxFit.contain,
@@ -494,7 +503,8 @@ class HomeScreen extends GetView<HomeController> {
               if (tagLabel != null && tagColor != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: tagColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -568,6 +578,34 @@ class PremiumSearchButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CategoryPlaceholder extends StatelessWidget {
+  const _CategoryPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          height: 70,
+          decoration: BoxDecoration(
+            color: const Color(0x1F9E9E9E),
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 10,
+          width: 50,
+          decoration: BoxDecoration(
+            color: const Color(0x1F9E9E9E),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ],
     );
   }
 }

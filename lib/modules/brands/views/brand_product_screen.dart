@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -12,6 +12,8 @@ import 'package:atlas/modules/product_detail/bindings/product_detail_binding.dar
 import 'package:atlas/modules/search/views/search_screen.dart';
 import 'package:atlas/modules/brands/models/brand_model.dart';
 import 'package:lottie/lottie.dart';
+import 'package:atlas/core/utils/app_log.dart';
+import 'package:atlas/widgets/filter_pill.dart';
 
 const _kGreen = AppColors.green;
 
@@ -52,21 +54,26 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
         final lang = Get.locale?.languageCode ?? 'tk';
         if (!mounted) return;
         setState(() {
-          _products = items.whereType<Map<String, dynamic>>().map((p) => _toProductMap(p, lang)).toList();
+          _products = items
+              .whereType<Map<String, dynamic>>()
+              .map((p) => _toProductMap(p, lang))
+              .toList();
           _sortProducts();
         });
       }
     } catch (e) {
-      print('[Brand] Error: $e');
+      AppLog.d('[Brand] Error: $e');
     }
     if (mounted) setState(() => _isLoading = false);
   }
 
   void _sortProducts() {
     if (_selectedSort == 'low') {
-      _products.sort((a, b) => (a['price'] as double).compareTo(b['price'] as double));
+      _products.sort(
+          (a, b) => (a['price'] as double).compareTo(b['price'] as double));
     } else if (_selectedSort == 'high') {
-      _products.sort((a, b) => (b['price'] as double).compareTo(a['price'] as double));
+      _products.sort(
+          (a, b) => (b['price'] as double).compareTo(a['price'] as double));
     } else if (_selectedSort == 'discount') {
       _products.sort((a, b) {
         final da = int.tryParse(a['discount']?.toString() ?? '0') ?? 0;
@@ -86,9 +93,13 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
             ? rawImageUrl
             : ApiConstants.fileUrl(rawImageUrl);
 
-    final salePrice = double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0;
-    final discountRaw = (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0).round();
-    final oldPrice = discountRaw > 0 && salePrice > 0 ? salePrice + salePrice * discountRaw / 100 : null;
+    final salePrice =
+        double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0;
+    final discountRaw =
+        (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0).round();
+    final oldPrice = discountRaw > 0 && salePrice > 0
+        ? salePrice + salePrice * discountRaw / 100
+        : null;
 
     return {
       'id': item['id']?.toString() ?? '',
@@ -198,7 +209,8 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
         ),
       ),
       transitionBuilder: (_, anim, __, child) => SlideTransition(
-        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
         child: child,
       ),
     );
@@ -314,7 +326,9 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
   Widget _buildFilterRow() {
     final lang = Get.locale?.languageCode ?? 'tk';
     final count = _products.length;
-    final countText = lang == 'ru' ? '$count ${count == 1 ? 'товар' : (count < 5 ? 'товара' : 'товаров')}' : '$count sany haryt';
+    final countText = lang == 'ru'
+        ? '$count ${count == 1 ? 'товар' : (count < 5 ? 'товара' : 'товаров')}'
+        : '$count sany haryt';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -352,7 +366,7 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
             ),
           ),
           const Spacer(),
-          _filterPill(
+          FilterPill(
             label: lang == 'ru' ? 'Сортировка' : 'Süzgüç',
             isActive: _selectedSort != null,
             onTap: _showSortSheet,
@@ -360,49 +374,12 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
               _selectedSort = null;
               _sortProducts();
             }),
+            height: 36,
+            borderRadius: 10,
+            inactiveColor: Colors.white,
+            inactiveBorderColor: const Color(0xFFE5E7EB),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _filterPill({
-    required String label,
-    required bool isActive,
-    required VoidCallback onTap,
-    required VoidCallback onClear,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.only(left: 14, right: isActive ? 6 : 14, top: 7, bottom: 7),
-        decoration: BoxDecoration(
-          color: isActive ? _kGreen : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: isActive ? _kGreen : const Color(0xFFE5E7EB)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isActive ? Colors.white : const Color(0xFF1D1B20),
-                fontFamily: 'Gilroy',
-              ),
-            ),
-            if (isActive) ...[
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: onClear,
-                child: const Icon(Icons.close, size: 16, color: Colors.white),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -413,9 +390,18 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
 
     final options = [
       (value: null as String?, label: lang == 'ru' ? 'Все' : 'Hemmesini saýla'),
-      (value: 'low', label: lang == 'ru' ? 'Цена: от дешевых' : 'Arzandan gymmada'),
-      (value: 'high', label: lang == 'ru' ? 'Цена: от дорогих' : 'Gymmatdan arzana'),
-      (value: 'discount', label: lang == 'ru' ? 'По скидке' : 'Arzanladyş boýunça'),
+      (
+        value: 'low',
+        label: lang == 'ru' ? 'Цена: от дешевых' : 'Arzandan gymmada'
+      ),
+      (
+        value: 'high',
+        label: lang == 'ru' ? 'Цена: от дорогих' : 'Gymmatdan arzana'
+      ),
+      (
+        value: 'discount',
+        label: lang == 'ru' ? 'По скидке' : 'Arzanladyş boýunça'
+      ),
     ];
 
     _showRightSheet(StatefulBuilder(
@@ -431,10 +417,15 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
                         Expanded(
                           child: Text(
                             lang == 'ru' ? 'Сортировка' : 'Tertiplemek',
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Gilroy'),
+                            style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'Gilroy'),
                           ),
                         ),
-                        IconButton(onPressed: Navigator.of(ctx).pop, icon: const Icon(Icons.close, size: 22)),
+                        IconButton(
+                            onPressed: Navigator.of(ctx).pop,
+                            icon: const Icon(Icons.close, size: 22)),
                       ],
                     ),
                   ),
@@ -484,11 +475,13 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Plays once and rests on its last frame — an empty state
+                  // has nothing more to say after the first pass.
                   Lottie.asset(
                     'assets/images/shopping-cart.json',
                     width: 180,
                     height: 180,
-                    repeat: true,
+                    repeat: false,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -552,7 +545,9 @@ class _BrandProductScreenState extends State<BrandProductScreen> {
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Center(
                 child: Text(
-                  lang == 'ru' ? '— Все товары показаны —' : '— Hemmesi görkezildi —',
+                  lang == 'ru'
+                      ? '— Все товары показаны —'
+                      : '— Hemmesi görkezildi —',
                   style: const TextStyle(
                     color: Colors.black38,
                     fontSize: 13,

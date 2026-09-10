@@ -2,13 +2,16 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:atlas/core/utils/app_log.dart';
 
 class LocalNotificationsService {
   LocalNotificationsService._internal();
-  static final LocalNotificationsService _instance = LocalNotificationsService._internal();
+  static final LocalNotificationsService _instance =
+      LocalNotificationsService._internal();
   factory LocalNotificationsService.instance() => _instance;
   late FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin;
-  final _androidInitializationSettings = const AndroidInitializationSettings('@mipmap/ic_launcher');
+  final _androidInitializationSettings =
+      const AndroidInitializationSettings('@mipmap/ic_launcher');
 
   final _iosInitializationSettings = const DarwinInitializationSettings(
     requestAlertPermission: true,
@@ -52,10 +55,13 @@ class LocalNotificationsService {
     await _flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
-        print('Foreground notification has been tapped: ${response.payload}');
+        AppLog.d(
+            'Foreground notification has been tapped: ${response.payload}');
       },
     );
-    final androidImpl = _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final androidImpl =
+        _flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
     await androidImpl?.createNotificationChannel(_androidChannel);
     await androidImpl?.createNotificationChannel(_deadlineChannel);
     _isFlutterLocalNotificationInitialized = true;
@@ -66,7 +72,8 @@ class LocalNotificationsService {
     String? body,
     String? payload,
   ) async {
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
       _androidChannel.id,
       _androidChannel.name,
       channelDescription: _androidChannel.description,
@@ -108,7 +115,8 @@ class LocalNotificationsService {
 
     // If deadline is already in the past, skip entirely
     if (deadlineDay.isBefore(today)) {
-      print('⚠️ Deadline for order $orderId is in the past, no notifications scheduled');
+      AppLog.d(
+          '⚠️ Deadline for order $orderId is in the past, no notifications scheduled');
       return;
     }
 
@@ -117,7 +125,8 @@ class LocalNotificationsService {
     // Always fire an immediate notification now if deadline is within 3 days
     final daysUntilDeadline = deadlineDay.difference(today).inDays;
     if (daysUntilDeadline <= 3) {
-      final String urgencyText = _deadlineBody(langCode, clientName, daysUntilDeadline);
+      final String urgencyText =
+          _deadlineBody(langCode, clientName, daysUntilDeadline);
       final androidDetails = AndroidNotificationDetails(
         _deadlineChannel.id,
         _deadlineChannel.name,
@@ -133,14 +142,16 @@ class LocalNotificationsService {
         NotificationDetails(android: androidDetails, iOS: iosDetails),
         payload: 'order_$orderId',
       );
-      print('🔔 Fired immediate notification for order $orderId ($daysUntilDeadline days until deadline)');
+      AppLog.d(
+          '🔔 Fired immediate notification for order $orderId ($daysUntilDeadline days until deadline)');
     }
 
     // Schedule future 9 AM reminders for days that haven't passed yet
     for (final daysBefore in daysBeforeList) {
       // Use Duration subtraction to correctly handle month/year boundaries
       final reminderDay = deadlineDay.subtract(Duration(days: daysBefore));
-      final scheduledDate = DateTime(reminderDay.year, reminderDay.month, reminderDay.day, 9, 0);
+      final scheduledDate =
+          DateTime(reminderDay.year, reminderDay.month, reminderDay.day, 9, 0);
 
       // Skip if this reminder time is already in the past
       if (scheduledDate.isBefore(now)) continue;
@@ -156,7 +167,8 @@ class LocalNotificationsService {
         priority: Priority.high,
       );
       const iosDetails = DarwinNotificationDetails();
-      final notifDetails = NotificationDetails(android: androidDetails, iOS: iosDetails);
+      final notifDetails =
+          NotificationDetails(android: androidDetails, iOS: iosDetails);
 
       await _flutterLocalNotificationsPlugin.zonedSchedule(
         notifId,
@@ -165,15 +177,18 @@ class LocalNotificationsService {
         tzScheduled,
         notifDetails,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
         payload: 'order_$orderId',
       );
-      print('⏰ Scheduled notification id=$notifId for order $orderId ($daysBefore days before deadline on ${scheduledDate.toIso8601String()})');
+      AppLog.d(
+          '⏰ Scheduled notification id=$notifId for order $orderId ($daysBefore days before deadline on ${scheduledDate.toIso8601String()})');
     }
   }
 
   /// Returns localized notification body based on [langCode] and [daysLeft].
-  static String _deadlineBody(String langCode, String clientName, int daysLeft) {
+  static String _deadlineBody(
+      String langCode, String clientName, int daysLeft) {
     switch (langCode) {
       case 'ru':
         if (daysLeft == 0) return '$clientName — срок СЕГОДНЯ!';
@@ -203,14 +218,15 @@ class LocalNotificationsService {
   }
 
   /// Cancels all deadline reminder notifications for the given order.
-  Future<void> cancelDeadlineNotifications(int orderId, {List<int> daysBeforeList = const [3, 2, 1]}) async {
+  Future<void> cancelDeadlineNotifications(int orderId,
+      {List<int> daysBeforeList = const [3, 2, 1]}) async {
     // Cancel the immediate notification (id = orderId * 10 + 0)
     await _flutterLocalNotificationsPlugin.cancel(orderId * 10);
     for (final daysBefore in daysBeforeList) {
       final notifId = orderId * 10 + daysBefore;
       await _flutterLocalNotificationsPlugin.cancel(notifId);
     }
-    print('🗑️ Cancelled deadline notifications for order $orderId');
+    AppLog.d('🗑️ Cancelled deadline notifications for order $orderId');
   }
 
   /// Returns a timezone name that matches the given UTC offset in minutes.

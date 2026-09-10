@@ -1,10 +1,9 @@
-// ignore_for_file: avoid_print
-
 import 'dart:convert';
 
 import 'package:get/get.dart';
 import 'package:atlas/core/services/call_api.dart';
 import 'package:atlas/core/services/auth_storage.dart';
+import 'package:atlas/core/utils/app_log.dart';
 
 class OrderController extends GetxController {
   final _api = CallApi();
@@ -28,52 +27,52 @@ class OrderController extends GetxController {
   Future<void> fetchMyOrders() async {
     isLoading.value = true;
     const endpoint = 'orders/my';
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('[Orders] ► GET /api/$endpoint');
+    AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLog.d('[Orders] ► GET /api/$endpoint');
     try {
       final response = await _api.getData(endpoint);
-      print('[Orders] ◄ status: ${response.statusCode}');
-      print('[Orders] ◄ raw body: ${response.body}');
+      AppLog.d('[Orders] ◄ status: ${response.statusCode}');
+      AppLog.d('[Orders] ◄ raw body: ${response.body}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        print('[Orders] ◄ keys: ${body.keys.toList()}');
+        AppLog.d('[Orders] ◄ keys: ${body.keys.toList()}');
         final data = body['data'];
         if (data is List) {
           myOrders.value = List<Map<String, dynamic>>.from(data);
           await _enrichOrderItems();
-          print('[Orders] ◄ parsed orders count: ${myOrders.length}');
+          AppLog.d('[Orders] ◄ parsed orders count: ${myOrders.length}');
           for (var i = 0; i < myOrders.length; i++) {
             final o = myOrders[i];
-            print('[Orders] ─────── Order [$i] ───────');
-            print('[Orders]   id         : ${o['id']}');
-            print('[Orders]   status     : ${o['status']}');
-            print('[Orders]   total_price: ${o['total_price']}');
-            print('[Orders]   payment    : ${o['payment_method']}');
-            print('[Orders]   address    : ${o['address']}');
-            print('[Orders]   phone      : ${o['phone']}');
-            print('[Orders]   payed      : ${o['payed']}');
-            print('[Orders]   shipped    : ${o['shipped']}');
-            print('[Orders]   created_at : ${o['created_at']}');
+            AppLog.d('[Orders] ─────── Order [$i] ───────');
+            AppLog.d('[Orders]   id         : ${o['id']}');
+            AppLog.d('[Orders]   status     : ${o['status']}');
+            AppLog.d('[Orders]   total_price: ${o['total_price']}');
+            AppLog.d('[Orders]   payment    : ${o['payment_method']}');
+            AppLog.d('[Orders]   address    : ${o['address']}');
+            AppLog.d('[Orders]   phone      : ${o['phone']}');
+            AppLog.d('[Orders]   payed      : ${o['payed']}');
+            AppLog.d('[Orders]   shipped    : ${o['shipped']}');
+            AppLog.d('[Orders]   created_at : ${o['created_at']}');
             final orderItems = o['order_items'] as List? ?? [];
-            print('[Orders]   items (${orderItems.length}):');
+            AppLog.d('[Orders]   items (${orderItems.length}):');
             for (var j = 0; j < orderItems.length; j++) {
               final it = orderItems[j] as Map<String, dynamic>;
-              print('[Orders]     [$j] product_id=${it['product_id']} '
+              AppLog.d('[Orders]     [$j] product_id=${it['product_id']} '
                   'qty=${it['quantity']} '
                   'sale_price=${it['sale_price']} '
                   'discount=${it['discount']}');
             }
           }
         } else {
-          print('[Orders] ◄ data is not a List: $data');
+          AppLog.d('[Orders] ◄ data is not a List: $data');
         }
       } else {
-        print('[Orders] ◄ non-200 response body: ${response.body}');
+        AppLog.d('[Orders] ◄ non-200 response body: ${response.body}');
       }
     } catch (e) {
-      print('[Orders] ✗ fetchMyOrders error: $e');
+      AppLog.d('[Orders] ✗ fetchMyOrders error: $e');
     }
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     isLoading.value = false;
   }
 
@@ -103,16 +102,16 @@ class OrderController extends GetxController {
         if (bankId != null) 'bank_id': bankId,
       };
 
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      print('[Orders] ► POST /api/orders');
-      print('[Orders] ► request body: ${jsonEncode(body)}');
+      AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLog.d('[Orders] ► POST /api/orders');
+      AppLog.d('[Orders] ► request body: ${jsonEncode(body)}');
       final response = await _api.postData(body, 'orders');
-      print('[Orders] ◄ status: ${response.statusCode}');
-      print('[Orders] ◄ response body: ${response.body}');
+      AppLog.d('[Orders] ◄ status: ${response.statusCode}');
+      AppLog.d('[Orders] ◄ response body: ${response.body}');
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        print('[Orders] ✓ order created successfully');
-        print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLog.d('[Orders] ✓ order created successfully');
+        AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         if (paymentMethod == 'online') {
           final respBody = jsonDecode(response.body) as Map<String, dynamic>;
@@ -121,11 +120,11 @@ class OrderController extends GetxController {
           final orderId = respBody['data']?['id'];
           lastOnlineOrderId =
               orderId != null ? int.tryParse(orderId.toString()) : null;
-          print('[Orders] ► orderId: $lastOnlineOrderId');
+          AppLog.d('[Orders] ► orderId: $lastOnlineOrderId');
 
           // Önce POST response'unda URL ara
           String? invoiceUrl = _findUrl(respBody);
-          print('[Orders] ► POST response URL: $invoiceUrl');
+          AppLog.d('[Orders] ► POST response URL: $invoiceUrl');
 
           // Bulunamazsa activate-order endpoint'ini çağır
           if ((invoiceUrl == null || invoiceUrl.isEmpty) &&
@@ -134,19 +133,19 @@ class OrderController extends GetxController {
           }
 
           result = invoiceUrl ?? '';
-          print('[Orders] ► final invoiceUrl: $result');
+          AppLog.d('[Orders] ► final invoiceUrl: $result');
         } else {
           result = '';
         }
 
         await fetchMyOrders();
       } else {
-        print('[Orders] ✗ order creation failed (${response.statusCode})');
-        print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLog.d('[Orders] ✗ order creation failed (${response.statusCode})');
+        AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
     } catch (e) {
-      print('[Orders] ✗ createOrder error: $e');
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLog.d('[Orders] ✗ createOrder error: $e');
+      AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
     isCreating.value = false;
     return result;
@@ -170,7 +169,8 @@ class OrderController extends GetxController {
     for (final pid in ids) {
       try {
         final res = await _api.getData('products/$pid');
-        print('[Orders] ► GET /api/products/$pid  status: ${res.statusCode}');
+        AppLog.d(
+            '[Orders] ► GET /api/products/$pid  status: ${res.statusCode}');
         if (res.statusCode == 200) {
           final body = jsonDecode(res.body) as Map<String, dynamic>;
           final p = body['data'] as Map<String, dynamic>?;
@@ -201,11 +201,11 @@ class OrderController extends GetxController {
             }
 
             _productCache[pid] = {'name': name, 'imageUrl': imageUrl};
-            print('[Orders]   product $pid → name=$name  image=$imageUrl');
+            AppLog.d('[Orders]   product $pid → name=$name  image=$imageUrl');
           }
         }
       } catch (e) {
-        print('[Orders] ✗ product fetch error (id=$pid): $e');
+        AppLog.d('[Orders] ✗ product fetch error (id=$pid): $e');
       }
     }
 
@@ -252,78 +252,78 @@ class OrderController extends GetxController {
     if (depth > 3) return;
     for (final entry in map.entries) {
       if (entry.value is Map) {
-        print('$prefix  ${entry.key}: {');
+        AppLog.d('$prefix  ${entry.key}: {');
         _printAllFields(prefix, entry.value as Map<String, dynamic>,
             depth: depth + 1);
-        print('$prefix  }');
+        AppLog.d('$prefix  }');
       } else {
-        print('$prefix  ${entry.key}: ${entry.value}');
+        AppLog.d('$prefix  ${entry.key}: ${entry.value}');
       }
     }
   }
 
   Future<String?> activatePayment(int orderId) async {
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('[Payment] ► GET /api/payments/activate-order/$orderId');
+    AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLog.d('[Payment] ► GET /api/payments/activate-order/$orderId');
     try {
       final response = await _api.getData('payments/activate-order/$orderId');
-      print('[Payment] ◄ status: ${response.statusCode}');
-      print('[Payment] ◄ raw body: ${response.body}');
+      AppLog.d('[Payment] ◄ status: ${response.statusCode}');
+      AppLog.d('[Payment] ◄ raw body: ${response.body}');
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        print('[Payment] ◄ tüm alanlar:');
+        AppLog.d('[Payment] ◄ tüm alanlar:');
         _printAllFields('[Payment]', body);
 
         final url = _findUrl(body);
-        print('[Payment] ◄ bulunan URL: $url');
-        print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLog.d('[Payment] ◄ bulunan URL: $url');
+        AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return url;
       } else {
-        print('[Payment] ✗ status ${response.statusCode}');
+        AppLog.d('[Payment] ✗ status ${response.statusCode}');
       }
     } catch (e) {
-      print('[Payment] ✗ activatePayment error: $e');
+      AppLog.d('[Payment] ✗ activatePayment error: $e');
     }
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     return null;
   }
 
   Future<bool> checkOrderPaid(int orderId) async {
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('[Payment] ► Ödeme durumu kontrol: GET /api/orders/$orderId');
+    AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLog.d('[Payment] ► Ödeme durumu kontrol: GET /api/orders/$orderId');
     try {
       final response = await _api.getData('orders/$orderId');
-      print('[Payment] ◄ status: ${response.statusCode}');
+      AppLog.d('[Payment] ◄ status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         final payed = body['data']?['payed'] == true;
-        print('[Payment] ◄ payed: $payed');
-        print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        AppLog.d('[Payment] ◄ payed: $payed');
+        AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return payed;
       }
     } catch (e) {
-      print('[Payment] ✗ checkOrderPaid error: $e');
+      AppLog.d('[Payment] ✗ checkOrderPaid error: $e');
     }
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     return false;
   }
 
   Future<bool> deleteOrder(int id) async {
-    print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    print('[Orders] ► DELETE /api/orders/$id');
+    AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    AppLog.d('[Orders] ► DELETE /api/orders/$id');
     try {
       final response = await _api.deleteData('orders/$id');
-      print('[Orders] ◄ status: ${response.statusCode}');
-      print('[Orders] ◄ body: ${response.body}');
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLog.d('[Orders] ◄ status: ${response.statusCode}');
+      AppLog.d('[Orders] ◄ body: ${response.body}');
+      AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (response.statusCode == 200 || response.statusCode == 204) {
         myOrders.removeWhere((o) => o['id'] == id);
         return true;
       }
     } catch (e) {
-      print('[Orders] ✗ deleteOrder error: $e');
-      print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      AppLog.d('[Orders] ✗ deleteOrder error: $e');
+      AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     }
     return false;
   }

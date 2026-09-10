@@ -5,9 +5,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
-import 'package:lottie/lottie.dart';
 import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/orders/views/checkout_screen.dart';
+import 'package:atlas/widgets/animated_quantity_text.dart';
+import 'package:atlas/core/theme/app_motion.dart';
+import 'package:atlas/widgets/empty_state_animation.dart';
 
 const _kGreen = AppColors.green;
 
@@ -47,55 +49,67 @@ class CartScreen extends GetView<CartController> {
         ],
       ),
       body: Obx(() {
-        // Loading state
-        if (controller.isLoading.value && controller.cartItems.isEmpty) {
-          return const Center(
-            child: CircularProgressIndicator(color: _kGreen, strokeWidth: 2.5),
-          );
-        }
+        return AnimatedSwitcher(
+          duration: AppMotion.duration(context, AppMotion.standard),
+          switchInCurve: AppMotion.easeOut,
+          switchOutCurve: AppMotion.easeOut,
+          child: _buildBody(context),
+        );
+      }),
+    );
+  }
 
-        // Empty cart
-        if (controller.cartItems.isEmpty) {
-          return RefreshIndicator(
+  Widget _buildBody(BuildContext context) {
+    // Loading state
+    if (controller.isLoading.value && controller.cartItems.isEmpty) {
+      return const Center(
+        key: ValueKey('loading'),
+        child: CircularProgressIndicator(color: _kGreen, strokeWidth: 2.5),
+      );
+    }
+
+    // Empty cart
+    if (controller.cartItems.isEmpty) {
+      return RefreshIndicator(
+        key: const ValueKey('empty'),
+        color: _kGreen,
+        backgroundColor: Colors.white,
+        onRefresh: controller.fetchCart,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height - 160,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: _buildEmptyCart(),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Non-empty cart
+    return Column(
+      key: const ValueKey('cart'),
+      children: [
+        Expanded(
+          child: RefreshIndicator(
             color: _kGreen,
             backgroundColor: Colors.white,
             onRefresh: controller.fetchCart,
-            child: SingleChildScrollView(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
               physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: MediaQuery.of(context).size.height - 160,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: _buildEmptyCart(),
-                ),
-              ),
+              itemCount: controller.cartItems.length,
+              itemBuilder: (context, index) {
+                final item = controller.cartItems[index];
+                return _buildCartItem(context, index, item);
+              },
             ),
-          );
-        }
-
-        // Non-empty cart
-        return Column(
-          children: [
-            Expanded(
-              child: RefreshIndicator(
-                color: _kGreen,
-                backgroundColor: Colors.white,
-                onRefresh: controller.fetchCart,
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: controller.cartItems.length,
-                  itemBuilder: (context, index) {
-                    final item = controller.cartItems[index];
-                    return _buildCartItem(context, index, item);
-                  },
-                ),
-              ),
-            ),
-            _buildCartSummary(context),
-          ],
-        );
-      }),
+          ),
+        ),
+        _buildCartSummary(context),
+      ],
     );
   }
 
@@ -106,15 +120,15 @@ class CartScreen extends GetView<CartController> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 125,
-            height: 130,
-            child: Lottie.asset(
-              'assets/images/shopping-cart.json',
-              repeat: true,
-              animate: true,
-              fit: BoxFit.contain,
-            ),
+          // The composition is square (1000x1000), so the box is too — a
+          // 125x130 slot would letterbox it.
+          const EmptyStateAnimation(
+            asset: 'assets/images/empty_cart.json',
+            fallbackIcon: Icons.shopping_cart_outlined,
+            size: 170,
+            // Loops on request. TickerMode keeps the cost bounded: this only
+            // ticks while the cart tab is the one on screen.
+            repeat: true,
           ),
           const SizedBox(height: 24),
           Text(
@@ -289,12 +303,18 @@ class CartScreen extends GetView<CartController> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildQtyBtn(Icons.remove,
-                              () => controller.updateQuantity(index, -1)),
+                          _buildQtyBtn(
+                            Icons.remove,
+                            () => controller.updateQuantity(index, -1),
+                            'decrease_quantity'.trParams({
+                              'name': title,
+                              'count': '${quantity - 1}',
+                            }),
+                          ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14),
-                            child: Text(
-                              '$quantity',
+                            child: AnimatedQuantityText(
+                              quantity: quantity,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -303,8 +323,14 @@ class CartScreen extends GetView<CartController> {
                               ),
                             ),
                           ),
-                          _buildQtyBtn(Icons.add,
-                              () => controller.updateQuantity(index, 1)),
+                          _buildQtyBtn(
+                            Icons.add,
+                            () => controller.updateQuantity(index, 1),
+                            'increase_quantity'.trParams({
+                              'name': title,
+                              'count': '${quantity + 1}',
+                            }),
+                          ),
                         ],
                       ),
                     ),
@@ -387,8 +413,9 @@ class CartScreen extends GetView<CartController> {
               ElevatedButton(
                 onPressed: () {
                   if (controller.cartItems.isNotEmpty) {
-                    Get.to(() => const CheckoutScreen(),
-                        transition: Transition.cupertino);
+                    Get.to(
+                      () => const CheckoutScreen(),
+                    );
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -416,13 +443,19 @@ class CartScreen extends GetView<CartController> {
     );
   }
 
-  Widget _buildQtyBtn(IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Icon(icon, size: 18, color: Colors.white),
+  Widget _buildQtyBtn(IconData icon, VoidCallback onTap, String label) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 24,
+        child: SizedBox(
+          // 44x44 — the old 34 px padded icon was under the minimum target.
+          width: 44,
+          height: 44,
+          child: Icon(icon, size: 18, color: Colors.white),
+        ),
       ),
     );
   }
@@ -462,6 +495,8 @@ class CartScreen extends GetView<CartController> {
           ),
         ),
       ),
+      // Full-screen image viewing is the one deliberate exception to the
+      // platform route policy: a fade reads as the photo opening in place.
       transition: Transition.fadeIn,
     );
   }

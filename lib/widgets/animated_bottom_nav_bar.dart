@@ -1,9 +1,9 @@
-// ignore_for_file: deprecated_member_use
-
-import 'package:atlas/themes/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
+
+import 'package:atlas/core/theme/app_motion.dart';
+import 'package:atlas/themes/colors.dart';
 
 /// One tab's icon, label, and optional badge count (e.g. cart item count).
 class NavBarItemData {
@@ -29,9 +29,14 @@ class NavBarItemData {
   final GlobalKey? iconKey;
 }
 
-/// A hand-rolled replacement for [BottomNavigationBar]: a green pill slides
-/// between tabs on selection, the active icon pops with a small bounce, and
-/// the cart badge scales in — no extra package, just implicit animations.
+/// A hand-rolled replacement for [BottomNavigationBar].
+///
+/// This is the most-tapped control in the app, so its motion is deliberately
+/// quiet: the pill slides on the compositor, the icon does no more than change
+/// colour with a hair of scale, and nothing overshoots. The previous version
+/// stacked a 420 ms `easeOutBack` slide (which animated `left`, and therefore
+/// re-laid out every frame), a 320 ms pill pop and a 380 ms `elasticOut` icon
+/// bounce on top of each other on every single tap.
 class AnimatedBottomNavBar extends StatelessWidget {
   const AnimatedBottomNavBar({
     super.key,
@@ -47,6 +52,13 @@ class AnimatedBottomNavBar extends StatelessWidget {
   static const _height = 64.0;
   static const _margin = 6.0;
 
+  void _handleTap(int index) {
+    // Re-tapping the current tab is a no-op: no animation, no haptic.
+    if (index == currentIndex) return;
+    AppMotion.selection();
+    onTap(index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -56,7 +68,7 @@ class AnimatedBottomNavBar extends StatelessWidget {
         color: AppColors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 20,
             offset: const Offset(0, -6),
           ),
@@ -77,18 +89,25 @@ class AnimatedBottomNavBar extends StatelessWidget {
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 420),
-                      curve: Curves.easeOutBack,
+                    // Fixed position and width; only the transform changes, so
+                    // the slide never triggers layout. Retargeting mid-flight
+                    // continues from where the pill currently is.
+                    Positioned(
                       top: 0,
                       bottom: 0,
-                      left: itemWidth * currentIndex,
+                      left: 0,
                       width: itemWidth,
-                      // Re-keying on the index restarts the pill's own pop-in
-                      // animation every time it lands on a new tab, on top of
-                      // the slide overshooting past its target and settling
-                      // back — that combination is what reads as a bounce.
-                      child: RepaintBoundary(child: _Pill(key: ValueKey(currentIndex))),
+                      child: TweenAnimationBuilder<double>(
+                        tween: Tween<double>(end: itemWidth * currentIndex),
+                        duration:
+                            AppMotion.duration(context, AppMotion.standard),
+                        curve: AppMotion.easeInOut,
+                        builder: (context, dx, child) => Transform.translate(
+                          offset: Offset(dx, 0),
+                          child: child,
+                        ),
+                        child: const RepaintBoundary(child: _Pill()),
+                      ),
                     ),
                     Row(
                       children: [
@@ -97,7 +116,7 @@ class AnimatedBottomNavBar extends StatelessWidget {
                             child: _NavItem(
                               data: items[i],
                               active: i == currentIndex,
-                              onTap: () => onTap(i),
+                              onTap: () => _handleTap(i),
                             ),
                           ),
                       ],
@@ -114,28 +133,22 @@ class AnimatedBottomNavBar extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill({super.key});
+  const _Pill();
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.85, end: 1),
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutBack,
-      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        decoration: BoxDecoration(
-          color: AppColors.green,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.green.withOpacity(0.16),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: AppColors.green,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.green.withValues(alpha: 0.16),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
     );
   }
@@ -159,61 +172,98 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          RepaintBoundary(
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  key: data.iconKey,
-                  child: TweenAnimationBuilder<double>(
-                    key: ValueKey(active),
-                    tween: Tween(begin: active ? 0.7 : 1, end: 1),
-                    duration: const Duration(milliseconds: 380),
-                    curve: Curves.elasticOut,
-                    builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
-                    child: HugeIcon(icon: data.icon, color: color, size: 22),
+      child: Semantics(
+        button: true,
+        selected: active,
+        label: data.label,
+        // The count is announced as part of the tab, so a screen reader says
+        // "Cart, 3, selected" instead of reading a stray number.
+        value: _badgeSemanticValue(),
+        container: true,
+        // The visible label and the badge are decoration here: this node
+        // already says everything, and leaving them in would say it twice.
+        // Excluding them also drops the detector's implicit tap action, so the
+        // node carries its own.
+        excludeSemantics: true,
+        onTap: onTap,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            RepaintBoundary(
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    key: data.iconKey,
+                    // Colour carries the selection; the scale is just enough to
+                    // acknowledge the tap. It settles, it does not bounce.
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(
+                          end: active ? 1 : AppMotion.pressedScale),
+                      duration: AppMotion.duration(context, AppMotion.instant),
+                      curve: AppMotion.easeOut,
+                      builder: (context, scale, child) =>
+                          Transform.scale(scale: scale, child: child),
+                      child: TweenAnimationBuilder<Color?>(
+                        tween: ColorTween(end: color),
+                        duration: AppMotion.instant,
+                        curve: AppMotion.easeOut,
+                        builder: (context, animatedColor, __) => HugeIcon(
+                          icon: data.icon,
+                          color: animatedColor ?? color,
+                          size: 22,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-                if (data.badgeCountGetter != null)
-                  Positioned(
-                    right: -8,
-                    top: -6,
-                    child: Obx(() {
-                      final count = data.badgeCountGetter!();
-                      return count > 0 ? _Badge(count: count) : const SizedBox.shrink();
-                    }),
-                  )
-                else if (data.badgeCount > 0)
-                  Positioned(
-                    right: -8,
-                    top: -6,
-                    child: _Badge(count: data.badgeCount),
-                  ),
-              ],
+                  if (data.badgeCountGetter != null)
+                    Positioned(
+                      right: -8,
+                      top: -6,
+                      child: Obx(() {
+                        final count = data.badgeCountGetter!();
+                        return count > 0
+                            ? _Badge(count: count)
+                            : const SizedBox.shrink();
+                      }),
+                    )
+                  else if (data.badgeCount > 0)
+                    Positioned(
+                      right: -8,
+                      top: -6,
+                      child: _Badge(count: data.badgeCount),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 250),
-            style: TextStyle(
-              fontFamily: 'Gilroy',
-              fontSize: 10,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              color: color,
-              height: 1.3,
+            const SizedBox(height: 4),
+            AnimatedDefaultTextStyle(
+              duration: AppMotion.instant,
+              curve: AppMotion.easeOut,
+              style: TextStyle(
+                fontFamily: 'Gilroy',
+                fontSize: 10,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+                height: 1.3,
+              ),
+              child: Text(
+                data.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            child: Text(
-              data.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  /// Null when there is nothing to announce, so the tab reads as a plain
+  /// button rather than one with an empty value.
+  String? _badgeSemanticValue() {
+    final count = data.badgeCountGetter?.call() ?? data.badgeCount;
+    return count > 0 ? '$count' : null;
   }
 }
 
@@ -225,11 +275,13 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
-      key: ValueKey(count),
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.elasticOut,
-      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+      // Keyed on presence, not on the number: the badge grows in once, and a
+      // changing count only crossfades the digits inside it.
+      tween: Tween<double>(begin: 0.92, end: 1),
+      duration: AppMotion.duration(context, AppMotion.fast),
+      curve: AppMotion.easeOut,
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
         constraints: const BoxConstraints(minWidth: 16),
@@ -237,15 +289,21 @@ class _Badge extends StatelessWidget {
           color: AppColors.red,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(
-          '$count',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontFamily: 'Gilroy',
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            height: 1.3,
+        child: AnimatedSwitcher(
+          duration: AppMotion.duration(context, AppMotion.instant),
+          switchInCurve: AppMotion.easeOut,
+          switchOutCurve: AppMotion.easeOut,
+          child: Text(
+            '$count',
+            key: ValueKey(count),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Gilroy',
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              height: 1.3,
+            ),
           ),
         ),
       ),

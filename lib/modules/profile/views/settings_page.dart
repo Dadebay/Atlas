@@ -21,7 +21,6 @@ class SettingsPage extends StatelessWidget {
   void _openWebView(String path, String title) {
     Get.to(
       () => InfoWebViewPage(url: _buildUrl(path), title: title),
-      transition: Transition.rightToLeft,
     );
   }
 
@@ -108,8 +107,7 @@ class SettingsPage extends StatelessWidget {
                 _SettingsSubItem(
                   icon: HugeIcons.strokeRoundedExchange01,
                   title: 'yzyna_gaytarmak'.tr,
-                  onTap: () =>
-                      _openWebView('returns', 'yzyna_gaytarmak'.tr),
+                  onTap: () => _openWebView('returns', 'yzyna_gaytarmak'.tr),
                 ),
               ],
             ),
@@ -121,14 +119,12 @@ class SettingsPage extends StatelessWidget {
                 _SettingsSubItem(
                   icon: HugeIcons.strokeRoundedDeliveryTruck01,
                   title: 'eltip_berme_toleg'.tr,
-                  onTap: () =>
-                      _openWebView('delivery', 'eltip_berme_toleg'.tr),
+                  onTap: () => _openWebView('delivery', 'eltip_berme_toleg'.tr),
                 ),
                 _SettingsSubItem(
                   icon: HugeIcons.strokeRoundedAgreement01,
                   title: 'hyzmatdashlyk'.tr,
-                  onTap: () =>
-                      _openWebView('wholesale', 'hyzmatdashlyk'.tr),
+                  onTap: () => _openWebView('wholesale', 'hyzmatdashlyk'.tr),
                 ),
               ],
             ),
@@ -327,8 +323,8 @@ class _SettingsExpandableGroupState extends State<_SettingsExpandableGroup>
               child: InkWell(
                 onTap: _toggle,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   child: Row(
                     children: [
                       Container(

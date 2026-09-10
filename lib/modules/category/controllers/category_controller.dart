@@ -1,10 +1,9 @@
-// ignore_for_file: avoid_print
-
 import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:atlas/core/services/call_api.dart';
 import 'package:atlas/modules/category/models/category_model.dart';
 import 'package:atlas/modules/brands/controllers/brands_controller.dart';
+import 'package:atlas/core/utils/app_log.dart';
 
 class CategoryController extends GetxController {
   final _api = CallApi();
@@ -41,7 +40,8 @@ class CategoryController extends GetxController {
       // categories/tree her iki dili {"tk":...,"ru":...} olarak döndürür
       // Content-Language header CallApi tarafından otomatik gönderilir
       final response = await _api.getData('categories/tree');
-      print('[Category] GET categories/tree  status: ${response.statusCode}');
+      AppLog.d(
+          '[Category] GET categories/tree  status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         final rawList = (body['data'] as List?) ?? [];
@@ -51,7 +51,7 @@ class CategoryController extends GetxController {
             .toList();
       }
     } catch (e) {
-      print('[Category] fetchCategories error: $e');
+      AppLog.d('[Category] fetchCategories error: $e');
     }
     isLoading.value = false;
   }
