@@ -7,6 +7,7 @@ import 'package:hugeicons/hugeicons.dart';
 import 'package:atlas/themes/colors.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:atlas/core/utils/app_log.dart';
+import 'package:atlas/core/utils/payment_navigation.dart';
 
 class InfoWebViewPage extends StatefulWidget {
   const InfoWebViewPage({
@@ -27,18 +28,8 @@ class InfoWebViewPage extends StatefulWidget {
 }
 
 class _InfoWebViewPageState extends State<InfoWebViewPage> {
-  InAppWebViewController? _webViewController;
-
   bool _isAutoCloseUrl(String url) {
-    if (widget.autoCloseHosts.isEmpty) return false;
-    return widget.autoCloseHosts.any((host) => url.contains(host));
-  }
-
-  Future<ServerTrustAuthResponse> _onReceivedServerTrustAuthRequest(
-      InAppWebViewController controller,
-      URLAuthenticationChallenge challenge) async {
-    return ServerTrustAuthResponse(
-        action: ServerTrustAuthResponseAction.PROCEED);
+    return isPaymentReturnUrl(url, widget.autoCloseHosts);
   }
 
   FutureOr<bool> _launchURL(String uri) async {
@@ -61,8 +52,6 @@ class _InfoWebViewPageState extends State<InfoWebViewPage> {
     if (uri == null) return NavigationActionPolicy.CANCEL;
 
     final uriString = uri.toString();
-    AppLog.d('[WebView] ► navigating: $uriString');
-
     // Ödeme return URL'i — WebView'ı kapat
     if (_isAutoCloseUrl(uriString)) {
       AppLog.d('[WebView] ✓ ödeme return URL algılandı, kapanıyor');
@@ -70,12 +59,11 @@ class _InfoWebViewPageState extends State<InfoWebViewPage> {
       return NavigationActionPolicy.CANCEL;
     }
 
-    if (uriString.startsWith('http://') || uriString.startsWith('https://')) {
+    if (isSecureWebUrl(uriString)) {
       return NavigationActionPolicy.ALLOW;
-    } else {
-      _launchURL(uriString);
-      return NavigationActionPolicy.CANCEL;
     }
+    if (uri.scheme != 'http') _launchURL(uriString);
+    return NavigationActionPolicy.CANCEL;
   }
 
   Future<bool> _onCreateWindow(
@@ -90,12 +78,11 @@ class _InfoWebViewPageState extends State<InfoWebViewPage> {
       return false;
     }
 
-    if (uriString.startsWith('http://') || uriString.startsWith('https://')) {
+    if (isSecureWebUrl(uriString)) {
       return true;
-    } else {
-      _launchURL(uriString);
-      return false;
     }
+    if (uri.scheme != 'http') _launchURL(uriString);
+    return false;
   }
 
   void _onLoadStop(InAppWebViewController controller, WebUri? url) {
@@ -137,10 +124,8 @@ class _InfoWebViewPageState extends State<InfoWebViewPage> {
       body: SafeArea(
         child: InAppWebView(
           initialUrlRequest: URLRequest(url: WebUri(widget.url)),
-          onWebViewCreated: (c) => _webViewController = c,
           onCreateWindow: _onCreateWindow,
           shouldOverrideUrlLoading: _shouldOverrideUrlLoading,
-          onReceivedServerTrustAuthRequest: _onReceivedServerTrustAuthRequest,
           onLoadStop: _onLoadStop,
           initialSettings: InAppWebViewSettings(
             useShouldOverrideUrlLoading: true,

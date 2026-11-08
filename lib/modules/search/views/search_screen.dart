@@ -79,7 +79,7 @@ class _SearchScreenState extends State<SearchScreen> {
       final response =
           await _api.getData('products/all?page=1&size=20&search=$encoded');
       AppLog.d('[Search API] GET status code: ${response.statusCode}');
-      AppLog.d('[Search API] GET response body: ${response.body}');
+      AppLog.d('[Search API] GET status: ${response.statusCode}');
       if (!mounted) return;
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);

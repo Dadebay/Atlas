@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:atlas/core/services/call_api.dart';
 import 'package:atlas/core/services/auth_storage.dart';
 import 'package:atlas/core/utils/app_log.dart';
+import 'package:atlas/core/utils/payment_navigation.dart';
 
 class OrderController extends GetxController {
   final _api = CallApi();
@@ -32,7 +33,6 @@ class OrderController extends GetxController {
     try {
       final response = await _api.getData(endpoint);
       AppLog.d('[Orders] ◄ status: ${response.statusCode}');
-      AppLog.d('[Orders] ◄ raw body: ${response.body}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         AppLog.d('[Orders] ◄ keys: ${body.keys.toList()}');
@@ -41,33 +41,11 @@ class OrderController extends GetxController {
           myOrders.value = List<Map<String, dynamic>>.from(data);
           await _enrichOrderItems();
           AppLog.d('[Orders] ◄ parsed orders count: ${myOrders.length}');
-          for (var i = 0; i < myOrders.length; i++) {
-            final o = myOrders[i];
-            AppLog.d('[Orders] ─────── Order [$i] ───────');
-            AppLog.d('[Orders]   id         : ${o['id']}');
-            AppLog.d('[Orders]   status     : ${o['status']}');
-            AppLog.d('[Orders]   total_price: ${o['total_price']}');
-            AppLog.d('[Orders]   payment    : ${o['payment_method']}');
-            AppLog.d('[Orders]   address    : ${o['address']}');
-            AppLog.d('[Orders]   phone      : ${o['phone']}');
-            AppLog.d('[Orders]   payed      : ${o['payed']}');
-            AppLog.d('[Orders]   shipped    : ${o['shipped']}');
-            AppLog.d('[Orders]   created_at : ${o['created_at']}');
-            final orderItems = o['order_items'] as List? ?? [];
-            AppLog.d('[Orders]   items (${orderItems.length}):');
-            for (var j = 0; j < orderItems.length; j++) {
-              final it = orderItems[j] as Map<String, dynamic>;
-              AppLog.d('[Orders]     [$j] product_id=${it['product_id']} '
-                  'qty=${it['quantity']} '
-                  'sale_price=${it['sale_price']} '
-                  'discount=${it['discount']}');
-            }
-          }
         } else {
-          AppLog.d('[Orders] ◄ data is not a List: $data');
+          AppLog.d('[Orders] ◄ unexpected data shape');
         }
       } else {
-        AppLog.d('[Orders] ◄ non-200 response body: ${response.body}');
+        AppLog.d('[Orders] ◄ non-200 status: ${response.statusCode}');
       }
     } catch (e) {
       AppLog.d('[Orders] ✗ fetchMyOrders error: $e');
@@ -84,7 +62,9 @@ class OrderController extends GetxController {
     String paymentMethod = 'cash',
     int? bankId,
   }) async {
+    if (isCreating.value) return null;
     isCreating.value = true;
+    lastOnlineOrderId = null;
     String? result;
     try {
       final items = cartItems.map((item) {
@@ -104,18 +84,18 @@ class OrderController extends GetxController {
 
       AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       AppLog.d('[Orders] ► POST /api/orders');
-      AppLog.d('[Orders] ► request body: ${jsonEncode(body)}');
       final response = await _api.postData(body, 'orders');
       AppLog.d('[Orders] ◄ status: ${response.statusCode}');
-      AppLog.d('[Orders] ◄ response body: ${response.body}');
 
       if (response.statusCode == 201 || response.statusCode == 200) {
+        // A successful POST has already created an order. Later parsing or
+        // payment-link failures must never turn it into a retryable failure.
+        result = '';
         AppLog.d('[Orders] ✓ order created successfully');
         AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         if (paymentMethod == 'online') {
           final respBody = jsonDecode(response.body) as Map<String, dynamic>;
-          _printAllFields('[Orders][POST]', respBody);
 
           final orderId = respBody['data']?['id'];
           lastOnlineOrderId =
@@ -124,7 +104,6 @@ class OrderController extends GetxController {
 
           // Önce POST response'unda URL ara
           String? invoiceUrl = _findUrl(respBody);
-          AppLog.d('[Orders] ► POST response URL: $invoiceUrl');
 
           // Bulunamazsa activate-order endpoint'ini çağır
           if ((invoiceUrl == null || invoiceUrl.isEmpty) &&
@@ -133,9 +112,6 @@ class OrderController extends GetxController {
           }
 
           result = invoiceUrl ?? '';
-          AppLog.d('[Orders] ► final invoiceUrl: $result');
-        } else {
-          result = '';
         }
 
         await fetchMyOrders();
@@ -201,7 +177,6 @@ class OrderController extends GetxController {
             }
 
             _productCache[pid] = {'name': name, 'imageUrl': imageUrl};
-            AppLog.d('[Orders]   product $pid → name=$name  image=$imageUrl');
           }
         }
       } catch (e) {
@@ -225,11 +200,10 @@ class OrderController extends GetxController {
     myOrders.value = updated;
   }
 
-  // Response içindeki http ile başlayan ilk string değeri bulur
+  // Find the first secure URL in a payment response.
   String? _findUrl(dynamic obj, {int depth = 0}) {
     if (depth > 5) return null;
-    if (obj is String &&
-        (obj.startsWith('http://') || obj.startsWith('https://'))) {
+    if (obj is String && isSecureWebUrl(obj)) {
       return obj;
     }
     if (obj is Map) {
@@ -247,36 +221,16 @@ class OrderController extends GetxController {
     return null;
   }
 
-  void _printAllFields(String prefix, Map<String, dynamic> map,
-      {int depth = 0}) {
-    if (depth > 3) return;
-    for (final entry in map.entries) {
-      if (entry.value is Map) {
-        AppLog.d('$prefix  ${entry.key}: {');
-        _printAllFields(prefix, entry.value as Map<String, dynamic>,
-            depth: depth + 1);
-        AppLog.d('$prefix  }');
-      } else {
-        AppLog.d('$prefix  ${entry.key}: ${entry.value}');
-      }
-    }
-  }
-
   Future<String?> activatePayment(int orderId) async {
     AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     AppLog.d('[Payment] ► GET /api/payments/activate-order/$orderId');
     try {
       final response = await _api.getData('payments/activate-order/$orderId');
       AppLog.d('[Payment] ◄ status: ${response.statusCode}');
-      AppLog.d('[Payment] ◄ raw body: ${response.body}');
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        AppLog.d('[Payment] ◄ tüm alanlar:');
-        _printAllFields('[Payment]', body);
-
         final url = _findUrl(body);
-        AppLog.d('[Payment] ◄ bulunan URL: $url');
         AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return url;
       } else {
@@ -289,7 +243,7 @@ class OrderController extends GetxController {
     return null;
   }
 
-  Future<bool> checkOrderPaid(int orderId) async {
+  Future<bool?> checkOrderPaid(int orderId) async {
     AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     AppLog.d('[Payment] ► Ödeme durumu kontrol: GET /api/orders/$orderId');
     try {
@@ -297,7 +251,8 @@ class OrderController extends GetxController {
       AppLog.d('[Payment] ◄ status: ${response.statusCode}');
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
-        final payed = body['data']?['payed'] == true;
+        final payed = body['data']?['payed'];
+        if (payed is! bool) return null;
         AppLog.d('[Payment] ◄ payed: $payed');
         AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         return payed;
@@ -306,7 +261,7 @@ class OrderController extends GetxController {
       AppLog.d('[Payment] ✗ checkOrderPaid error: $e');
     }
     AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    return false;
+    return null;
   }
 
   Future<bool> deleteOrder(int id) async {
@@ -315,7 +270,6 @@ class OrderController extends GetxController {
     try {
       final response = await _api.deleteData('orders/$id');
       AppLog.d('[Orders] ◄ status: ${response.statusCode}');
-      AppLog.d('[Orders] ◄ body: ${response.body}');
       AppLog.d('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       if (response.statusCode == 200 || response.statusCode == 204) {
         myOrders.removeWhere((o) => o['id'] == id);
