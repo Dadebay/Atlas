@@ -50,7 +50,9 @@ class _BootstrapGateState extends State<BootstrapGate> {
       duration: AppMotion.duration(context, AppMotion.standard),
       switchInCurve: AppMotion.easeOut,
       switchOutCurve: AppMotion.easeOut,
-      child: _showShell ? const MainScreen(key: ValueKey('shell')) : const SplashBrand(key: ValueKey('brand')),
+      child: _showShell
+          ? const MainScreen(key: ValueKey('shell'))
+          : const SplashBrand(key: ValueKey('brand')),
     );
   }
 }

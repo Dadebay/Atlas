@@ -100,7 +100,8 @@ class BrandsScreen extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.green,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             child: Text('retry'.tr),
           ),
@@ -206,7 +207,8 @@ class _BrandImage extends StatelessWidget {
         child: SizedBox(
           height: 24,
           width: 24,
-          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
+          child:
+              CircularProgressIndicator(strokeWidth: 2, color: AppColors.green),
         ),
       ),
       errorWidget: (_, __, ___) => _placeholder(),

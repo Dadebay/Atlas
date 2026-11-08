@@ -42,6 +42,5 @@ class CategoryModel {
     );
   }
 
-  String localName(String lang) =>
-      name[lang] ?? name['tk'] ?? name['ru'] ?? '';
+  String localName(String lang) => name[lang] ?? name['tk'] ?? name['ru'] ?? '';
 }

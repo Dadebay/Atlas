@@ -42,8 +42,7 @@ class ProductDetailController extends GetxController {
     isLoading.value = false;
   }
 
-  Future<void> fetchSimilarProducts(
-      String categoryId, String currentId) async {
+  Future<void> fetchSimilarProducts(String categoryId, String currentId) async {
     isLoadingSimilar.value = true;
     try {
       final response = await _api
@@ -61,8 +60,7 @@ class ProductDetailController extends GetxController {
     isLoadingSimilar.value = false;
   }
 
-  Map<String, dynamic> _toProductMap(
-      Map<String, dynamic> item, String lang) {
+  Map<String, dynamic> _toProductMap(Map<String, dynamic> item, String lang) {
     final rawUrl = item['image_url']?.toString() ?? '';
     final imageUrl = rawUrl.isEmpty
         ? ''
@@ -72,8 +70,7 @@ class ProductDetailController extends GetxController {
     final salePrice =
         double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0;
     final discountRaw =
-        (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0)
-            .round();
+        (double.tryParse(item['discount']?.toString() ?? '0') ?? 0.0).round();
     final oldPrice = discountRaw > 0 && salePrice > 0
         ? salePrice + salePrice * discountRaw / 100
         : null;

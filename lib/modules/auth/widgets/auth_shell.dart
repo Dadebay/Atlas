@@ -51,7 +51,8 @@ class AuthShell extends StatelessWidget {
                   if (step != null) _StepBar(step: step!, total: totalSteps),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(24, 28, 24, 24 + bottomInset),
+                      padding:
+                          EdgeInsets.fromLTRB(24, 28, 24, 24 + bottomInset),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

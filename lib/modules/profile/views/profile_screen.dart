@@ -330,7 +330,7 @@ class ProfileScreen extends GetView<ProfileController> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               spreadRadius: 2,
               blurRadius: 10,
               offset: const Offset(0, 4),
@@ -347,7 +347,7 @@ class ProfileScreen extends GetView<ProfileController> {
               ),
               child: CircleAvatar(
                 radius: 35,
-                backgroundColor: AppColors.green.withOpacity(0.1),
+                backgroundColor: AppColors.green.withValues(alpha: 0.1),
                 child: Obx(() {
                   final name = controller.userName.value;
                   if (name.isEmpty) {
@@ -556,7 +556,7 @@ class ProfileScreen extends GetView<ProfileController> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
+            color: Colors.grey.withValues(alpha: 0.05),
             spreadRadius: 2,
             blurRadius: 10,
             offset: const Offset(0, 4),
@@ -594,7 +594,7 @@ class ProfileScreen extends GetView<ProfileController> {
                       icon: HugeIcons.strokeRoundedArrowRight01,
                       size: 18,
                       color: isDestructive
-                          ? Colors.red.withOpacity(0.4)
+                          ? Colors.red.withValues(alpha: 0.4)
                           : Colors.black26,
                     ),
               ],
@@ -621,7 +621,7 @@ class ProfileScreen extends GetView<ProfileController> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const HugeIcon(
@@ -778,7 +778,7 @@ class _ProfileExpandableGroupState extends State<_ProfileExpandableGroup>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
+            color: Colors.grey.withValues(alpha: 0.05),
             spreadRadius: 2,
             blurRadius: 10,
             offset: const Offset(0, 4),
