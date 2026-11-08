@@ -12,7 +12,6 @@ import 'package:atlas/modules/main/controllers/feature_controllers.dart';
 import 'package:atlas/modules/orders/controllers/order_controller.dart';
 import 'package:atlas/modules/profile/views/web_view.dart';
 import 'package:atlas/themes/colors.dart';
-import 'package:atlas/core/utils/app_log.dart';
 import 'package:atlas/widgets/order_success_overlay.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -33,8 +32,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _paymentMethod = 'cash';
   List<Map<String, dynamic>> _banks = [];
   bool _isLoadingBanks = false;
+  bool _isSubmitting = false;
   int? _selectedBankId;
-  String? _selectedBankName;
 
   @override
   void dispose() {
@@ -151,7 +150,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       final item = items[i];
                       final title = item['title']?.toString() ?? '';
                       final image = item['imageUrl']?.toString() ?? '';
-                      final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+                      final price = (item['price'] as num?)?.toDouble();
                       final qty = (item['quantity'] as num?)?.toInt() ?? 1;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -199,7 +198,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${price.toStringAsFixed(0)} TMT × $qty',
+                                    '${price?.toStringAsFixed(0) ?? '—'} TMT × $qty',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.black45,
@@ -211,7 +210,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '${(price * qty).toStringAsFixed(0)} TMT',
+                              '${price == null ? '—' : (price * qty).toStringAsFixed(0)} TMT',
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w800,
@@ -237,7 +236,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ),
                         ),
                         Obx(() => Text(
-                              '${_cartCtrl.totalPrice.toStringAsFixed(0)} TMT',
+                              '${_cartCtrl.totalPrice?.toStringAsFixed(0) ?? '—'} TMT',
                               style: const TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w900,
@@ -274,7 +273,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: Obx(() => ElevatedButton(
-                onPressed: _orderCtrl.isCreating.value ? null : _submitOrder,
+                onPressed: _isSubmitting || _orderCtrl.isCreating.value
+                    ? null
+                    : _submitOrder,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.green,
                   disabledBackgroundColor: AppColors.green.withOpacity(0.5),
@@ -284,7 +285,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
-                child: _orderCtrl.isCreating.value
+                child: _isSubmitting || _orderCtrl.isCreating.value
                     ? const SizedBox(
                         width: 22,
                         height: 22,
@@ -395,7 +396,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           borderRadius: BorderRadius.circular(12),
                           onTap: () => setStateDialog(() {
                             _selectedBankId = bank['id'] as int;
-                            _selectedBankName = bank['name'] as String;
                           }),
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 8),
@@ -518,66 +518,91 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _submitOrder() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
-
-    // Online seçildiyse önce banka dialog'u göster
-    if (_paymentMethod == 'online') {
-      if (_banks.isEmpty) await _fetchBanks();
-      await _showBankSheet();
-      if (_selectedBankId == null) return; // Kullanıcı iptal etti
+    if (_cartCtrl.cartItems.isEmpty || _cartCtrl.totalPrice == null) {
+      Get.snackbar('error_title'.tr, 'price_unavailable'.tr,
+          snackPosition: SnackPosition.BOTTOM);
+      return;
     }
+    setState(() => _isSubmitting = true);
+    try {
+      // Online seçildiyse önce banka dialog'u göster
+      if (_paymentMethod == 'online') {
+        if (_banks.isEmpty) await _fetchBanks();
+        await _showBankSheet();
+        if (_selectedBankId == null) return; // Kullanıcı iptal etti
+      }
 
-    final items = List<Map<String, dynamic>>.from(_cartCtrl.cartItems);
-    final result = await _orderCtrl.createOrder(
-      address: _addressCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim(),
-      cartItems: items,
-      paymentMethod: _paymentMethod,
-      bankId: _selectedBankId,
-    );
+      final items = List<Map<String, dynamic>>.from(_cartCtrl.cartItems);
+      final result = await _orderCtrl.createOrder(
+        address: _addressCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        cartItems: items,
+        paymentMethod: _paymentMethod,
+        bankId: _selectedBankId,
+      );
 
-    if (result != null) {
-      if (_paymentMethod == 'online' && result.isNotEmpty) {
-        AppLog.d('[Checkout] ► WebView açılıyor: $result');
-        await Get.to(() => InfoWebViewPage(
-              url: result,
-              title: Get.locale?.languageCode == 'ru' ? 'Оплата' : 'Töleg',
-              autoCloseHosts: const ['atlas.com.tm'],
-            ));
+      if (!mounted) return;
+      if (result != null) {
+        if (_paymentMethod == 'online') {
+          if (result.isNotEmpty) {
+            try {
+              await Get.to(() => InfoWebViewPage(
+                    url: result,
+                    title:
+                        Get.locale?.languageCode == 'ru' ? 'Оплата' : 'Töleg',
+                    autoCloseHosts: const ['atlas.com.tm'],
+                  ));
+            } catch (_) {
+              // The order already exists even if its payment page cannot open.
+            }
+            if (!mounted) return;
+          }
 
-        // WebView kapandı — ödeme yapıldı mı kontrol et
-        final orderId = _orderCtrl.lastOnlineOrderId;
-        final paid =
-            orderId != null ? await _orderCtrl.checkOrderPaid(orderId) : false;
+          // The order already exists. A missing link or an uncertain payment
+          // read must not show a paid success or permit another order POST.
+          final orderId = _orderCtrl.lastOnlineOrderId;
+          final paid =
+              orderId != null ? await _orderCtrl.checkOrderPaid(orderId) : null;
+          if (!mounted) return;
 
-        if (paid) {
-          // Ödeme başarılı
-          _cartCtrl.clearCart();
+          await _cartCtrl.clearCart();
+          if (!mounted) return;
           Get.back();
-          // Confirmed by the backend — the one place the app celebrates.
+
+          if (paid == true) {
+            OrderSuccessOverlay.show(
+              title: 'order_success'.tr,
+              subtitle: 'order_placed_desc'.tr,
+            );
+          } else {
+            Get.snackbar(
+              'order_success'.tr,
+              'payment_unconfirmed'.tr,
+              snackPosition: SnackPosition.BOTTOM,
+            );
+          }
+        } else {
+          await _cartCtrl.clearCart();
+          if (!mounted) return;
+          Get.back();
           OrderSuccessOverlay.show(
             title: 'order_success'.tr,
             subtitle: 'order_placed_desc'.tr,
           );
         }
-        // Ödeme yapılmadıysa checkout'ta kal, sepet kalır
       } else {
-        // Nakit veya URL gelmedi
-        _cartCtrl.clearCart();
-        Get.back();
-        OrderSuccessOverlay.show(
-          title: 'order_success'.tr,
-          subtitle: 'order_placed_desc'.tr,
+        Get.snackbar(
+          'error_title'.tr,
+          'order_error'.tr,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
         );
       }
-    } else {
-      Get.snackbar(
-        'error_title'.tr,
-        'order_error'.tr,
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 

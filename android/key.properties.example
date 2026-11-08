@@ -1,0 +1,6 @@
+# Copy to android/key.properties only after confirming this keystore with Play Console.
+# Keep the real keystore and passwords outside Git.
+storeFile=/absolute/path/to/atlas-upload-keystore.jks
+storePassword=REPLACE_LOCALLY
+keyAlias=REPLACE_LOCALLY
+keyPassword=REPLACE_LOCALLY

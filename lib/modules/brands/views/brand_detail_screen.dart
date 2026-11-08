@@ -61,7 +61,8 @@ class _BrandDetailScreenState extends State<BrandDetailScreen> {
                   padding: const EdgeInsets.fromLTRB(32, 80, 32, 16),
                   child: loading
                       ? const Center(
-                          child: CircularProgressIndicator(color: AppColors.green),
+                          child:
+                              CircularProgressIndicator(color: AppColors.green),
                         )
                       : _buildHeroImage(brand.image, brand.name),
                 ),

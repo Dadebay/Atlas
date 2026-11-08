@@ -21,8 +21,10 @@ class OtpVerifyView extends StatefulWidget {
 class _OtpVerifyViewState extends State<OtpVerifyView> {
   static const int _length = 4;
 
-  final List<TextEditingController> _controllers = List.generate(_length, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(_length, (_) => FocusNode());
+  final List<TextEditingController> _controllers =
+      List.generate(_length, (_) => TextEditingController());
+  final List<FocusNode> _focusNodes =
+      List.generate(_length, (_) => FocusNode());
 
   late final AuthController _auth;
 
@@ -33,7 +35,8 @@ class _OtpVerifyViewState extends State<OtpVerifyView> {
     for (final node in _focusNodes) {
       node.addListener(() => setState(() {}));
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNodes.first.requestFocus());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _focusNodes.first.requestFocus());
   }
 
   @override
@@ -125,7 +128,8 @@ class _OtpVerifyViewState extends State<OtpVerifyView> {
             padding: const EdgeInsets.only(top: 14),
             child: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, size: 17, color: Color(0xFFE53935)),
+                const Icon(Icons.error_outline_rounded,
+                    size: 17, color: Color(0xFFE53935)),
                 const SizedBox(width: 7),
                 Expanded(
                   child: Text(
@@ -227,9 +231,12 @@ class _OtpVerifyViewState extends State<OtpVerifyView> {
         ),
         decoration: InputDecoration(
           filled: true,
-          fillColor: hasValue ? AppColors.green.withValues(alpha: 0.06) : const Color(0xFFF4F6FA),
+          fillColor: hasValue
+              ? AppColors.green.withValues(alpha: 0.06)
+              : const Color(0xFFF4F6FA),
           counterText: '',
-          contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
           // Every state is named, so nothing is left for the theme to fill in.
           border: box(borderColor, 1.4),
           enabledBorder: box(borderColor, 1.4),

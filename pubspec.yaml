@@ -1,5 +1,5 @@
 name: atlas
-description: "A new Flutter project."
+description: "Atlas shopping app for school and office supplies in Turkmenistan."
 
 publish_to: 'none'
 
@@ -22,6 +22,7 @@ dependencies:
 
   #==================== NETWORK ====================#
   http:
+  timezone: ^0.10.1
 
   #==================== UI & UX ====================#
   hugeicons: ^0.0.11
@@ -36,7 +37,6 @@ dependencies:
   #==================== MEDIA ====================#
   cached_network_image: ^3.3.1
   flutter_svg: ^2.0.10+1
-  image_picker: ^1.1.2
   flutter_inappwebview: ^6.1.5
 
   #==================== SHARE ====================#

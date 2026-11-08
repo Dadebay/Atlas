@@ -214,6 +214,10 @@ class AppTranslations extends Translations {
           'error_occurred': 'Ýalňyşlyk ýüze çykdy',
           'failed_to_create_order': 'Sargyt döredilmedi',
           'could_not_launch_payment_url': 'Toleg sahypasyny açyp bolmady',
+          'payment_unconfirmed':
+              'Sargyt döredildi, ýöne töleg tassyklanmady. Täzeden sargyt etmezden öň sargytlaryňyzy barlaň.',
+          'price_unavailable':
+              'Bahasy belli bolmadyk haryt bar. Sargyt etmezden öň sebedi täzeläň.',
           'summ_to_send': 'Doldurylmaly möçberi',
           'how_much': 'Möçberi giriziň',
           'remind_money': 'Ýatladýarys 1 ŞAÝ = 1 TMT, bu ýere ŞAÝ giriziň.',
@@ -717,7 +721,6 @@ class AppTranslations extends Translations {
           'logout_success_title': 'Успешный выход',
           'logout_success_subtitle': 'Вы вышли из системы',
           'professional_profile': 'Мой профиль специалиста',
-          'create_professional_profile': 'Создать профиль специалиста',
           'sort_by_date': 'По дате',
           'sort_by_offers': 'По предложениям',
           "nearest": "По ближайшим",
@@ -782,6 +785,10 @@ class AppTranslations extends Translations {
           'error_occurred': 'Произошла ошибка',
           'failed_to_create_order': 'Не удалось создать заказ',
           'could_not_launch_payment_url': 'Не удалось открыть страницу оплаты',
+          'payment_unconfirmed':
+              'Заказ создан, но оплата не подтверждена. Проверьте заказы перед повторным оформлением.',
+          'price_unavailable':
+              'В корзине есть товар без цены. Обновите корзину перед заказом.',
           'summ_to_send': 'Сумма пополнения',
           'how_much': 'Введите сумму',
           'remind_money': 'Напоминаем: 1 ШАЙ = 1 ТМТ, введите ШАЙ.',
@@ -825,9 +832,7 @@ class AppTranslations extends Translations {
           'delete_chats_desc':
               'Вы уверены, что хотите удалить выбранные сообщения?',
           'no_product_info': 'Нет информации о товаре',
-          'no': 'Нет',
           "Ýumuşlarym": "Мои задачи",
-          'yes': 'Да',
           'retry': 'Попробовать еще раз',
           'no_data_found': 'Данные не найдены',
           'error_loading_chats': 'Не удалось загрузить сообщения',

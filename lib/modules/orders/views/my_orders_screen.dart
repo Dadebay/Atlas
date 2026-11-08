@@ -276,8 +276,9 @@ class MyOrdersScreen extends StatelessWidget {
   }
 
   String _parsePrice(dynamic price) {
-    if (price == null) return '0';
-    final num val = num.tryParse(price.toString()) ?? 0;
+    if (price == null) return '—';
+    final num? val = num.tryParse(price.toString());
+    if (val == null) return '—';
     return val.toStringAsFixed(0);
   }
 

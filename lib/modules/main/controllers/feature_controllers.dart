@@ -51,7 +51,7 @@ class CartController extends GetxController {
       'product_id': (item['product_id'] as num?)?.toInt(),
       'title': item['name']?.toString() ?? '',
       'imageUrl': imageUrl,
-      'price': double.tryParse(item['sale_price']?.toString() ?? '0') ?? 0.0,
+      'price': double.tryParse(item['sale_price']?.toString() ?? ''),
       'quantity': (item['quantity'] as num?)?.toInt() ?? 1,
     };
   }
@@ -77,7 +77,7 @@ class CartController extends GetxController {
         'product_id': productId,
         'title': item['title']?.toString() ?? '',
         'imageUrl': item['imageUrl']?.toString() ?? '',
-        'price': (item['price'] as num?)?.toDouble() ?? 0.0,
+        'price': (item['price'] as num?)?.toDouble(),
         'quantity': initialQuantity,
       });
       try {
@@ -148,11 +148,22 @@ class CartController extends GetxController {
     } catch (_) {}
   }
 
-  double get totalPrice => cartItems.fold(0.0, (sum, item) {
-        final price = (item['price'] as num?)?.toDouble() ?? 0.0;
-        final qty = (item['quantity'] as num?)?.toInt() ?? 1;
-        return sum + (price * qty);
-      });
+  double? get totalPrice {
+    var sum = 0.0;
+    for (final item in cartItems) {
+      final price = (item['price'] as num?)?.toDouble();
+      final qty = (item['quantity'] as num?)?.toInt();
+      if (price == null ||
+          !price.isFinite ||
+          price < 0 ||
+          qty == null ||
+          qty <= 0) {
+        return null;
+      }
+      sum += price * qty;
+    }
+    return sum;
+  }
 }
 
 class FavoritesController extends GetxController {

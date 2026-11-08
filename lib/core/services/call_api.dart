@@ -43,7 +43,7 @@ class CallApi {
 
   Future<http.Response> getData(String apiUrl) async {
     final url = _buildUrl(apiUrl);
-    AppLog.d('GET $url  [lang=$_lang]');
+    AppLog.d('GET request [lang=$_lang]');
     return _guardSession(
         await http.get(Uri.parse(url), headers: _buildHeaders()));
   }
@@ -51,7 +51,7 @@ class CallApi {
   Future<http.Response> postData(
       Map<String, dynamic> data, String apiUrl) async {
     final url = _buildUrl(apiUrl);
-    AppLog.d('POST $url  [lang=$_lang]');
+    AppLog.d('POST request [lang=$_lang]');
     return _guardSession(await http.post(
       Uri.parse(url),
       body: jsonEncode(data),
@@ -62,7 +62,7 @@ class CallApi {
   Future<http.Response> patchData(
       Map<String, dynamic> data, String apiUrl) async {
     final url = _buildUrl(apiUrl);
-    AppLog.d('PATCH $url  [lang=$_lang]');
+    AppLog.d('PATCH request [lang=$_lang]');
     return _guardSession(await http.patch(
       Uri.parse(url),
       body: jsonEncode(data),
@@ -72,7 +72,7 @@ class CallApi {
 
   Future<http.Response> deleteData(String apiUrl) async {
     final url = _buildUrl(apiUrl);
-    AppLog.d('DELETE $url  [lang=$_lang]');
+    AppLog.d('DELETE request [lang=$_lang]');
     return _guardSession(
         await http.delete(Uri.parse(url), headers: _buildHeaders()));
   }
@@ -84,7 +84,7 @@ class CallApi {
     String token,
   ) async {
     final url = _buildUrl(apiUrl);
-    AppLog.d('FCM POST $url');
+    AppLog.d('FCM POST request');
     final response = await http.post(
       Uri.parse(url),
       body: jsonEncode(data),
@@ -102,7 +102,7 @@ class CallApi {
     String token,
   ) async {
     final url = _buildUrl(apiUrl);
-    AppLog.d('FCM PATCH $url');
+    AppLog.d('FCM PATCH request');
     final response = await http.patch(
       Uri.parse(url),
       body: jsonEncode(data),
@@ -114,7 +114,7 @@ class CallApi {
 
   Future<http.Response> uploadFile(File file, String apiUrl) async {
     final url = _buildUrl(apiUrl);
-    AppLog.d('MULTIPART POST $url');
+    AppLog.d('MULTIPART POST request');
     try {
       final request = http.MultipartRequest('POST', Uri.parse(url));
 

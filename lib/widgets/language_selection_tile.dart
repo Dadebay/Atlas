@@ -37,7 +37,7 @@ class LanguageSelectionTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
               color: isSelected
-                  ? AppColors.green.withOpacity(0.05)
+                  ? AppColors.green.withValues(alpha: 0.05)
                   : const Color(0xFFF9F9F9),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(

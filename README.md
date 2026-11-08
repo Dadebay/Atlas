@@ -1,76 +1,39 @@
 # Atlas
 
-**Atlas — mekdep we ofis harytlary** (okul ve ofis malzemeleri), Türkmenistan merkezli bir e-ticaret markasının resmi mobil uygulaması. Flutter ile geliştirilmiş, Android ve iOS'u tek koddan hedefleyen bir alışveriş uygulaması.
+Atlas is a Flutter shopping app for school and office supplies in Turkmenistan. Customers can browse products, search, save favorites, manage a cart, and place orders. The app supports Turkmen and Russian and uses the Atlas API at `https://atlas.com.tm/api`.
 
-> Not: Bu README, [atlas.com.tm](https://atlas.com.tm) sitesinin canlı içeriği yerine proje kod tabanından (API uçları, çeviri dosyaları, ekranlar) derlenmiştir.
+- [Official website](https://atlas.com.tm/tk)
+- [Atlas on Google Play](https://play.google.com/store/apps/details?id=tm.com.atlas) — Android application ID `tm.com.atlas`
 
-## Uygulama hakkında
+The iOS bundle ID is `com.globus.atlas`. No App Store listing or public GitHub Release has been verified for this repository, so this README does not present an iOS download or an APK download.
 
-- **Sektör:** Okul ve ofis malzemeleri (defter, kalem, çanta/sumka, kitap vb.)
-- **Para birimi:** TMT (Türkmen Manadı)
-- **Diller:** Türkmence (`tk`, varsayılan) ve Rusça (`ru`) — uygulama içi tam çeviri desteği ile
-- **API:** `https://atlas.com.tm/api`
-- **Web sitesi:** `https://atlas.com.tm`
-- **Android application ID:** `tm.com.atlas`
+## Features
 
-## Özellikler
+- Browse categories, brands, featured products, and product details.
+- Search products and manage favorites and a cart.
+- Sign in with a phone number and SMS code.
+- Place cash or online payment orders and view order history.
+- Receive order notifications through Firebase Cloud Messaging when permission is granted.
 
-- **Ana sayfa** — banner'lar, indirimli ürünler, yeni gelen ürünler, kategori kısayolları
-- **Kategoriler & Markalar** — segment kontrollü sekme geçişiyle (iOS tarzı animasyon) kategori/marka listeleme, alt kategori ve markaya göre ürün filtreleme
-- **Ürün detayı** — çoklu görsel carousel'i, favoriye ekleme, paylaşma, stok/artikul/barkod bilgisi, sepete ekleme
-- **Sepet** — miktar artırma/azaltma, "sepete uçma" animasyonu ile görsel geri bildirim
-- **Favoriler** — API destekli beğeni/beğenmeme (`products/like`, `products/unlike`), anlık senkronize liste
-- **Arama** — canlı ürün arama
-- **Sipariş & Ödeme** — sepetten checkout akışı, sipariş geçmişi (`my_orders`)
-- **Kimlik doğrulama** — telefon numarası + OTP ile kayıt, giriş
-- **Bildirimler** — Firebase Cloud Messaging + yerel bildirimler (arka planda da çalışır)
-- **Profil** — kullanıcı hesabı, dil değiştirme
+## Requirements
 
-## Teknoloji yığını
+- Flutter 3.47.8 and Dart 3.13.7, the toolchain used for the checks in this repository.
+- JDK 17 and Android SDK for Android builds. Configure Flutter to use JDK 17 with `flutter config --jdk-dir=/path/to/jdk-17` if Android Studio supplies a newer incompatible JDK.
+- Xcode and CocoaPods for iOS builds.
+- Existing Firebase configuration in `lib/firebase_options.dart` and the platform Firebase files. Use `flutterfire configure` when connecting a different Firebase project.
 
-| Katman | Kullanılan |
-|---|---|
-| Dil / Framework | Flutter (Dart, SDK ^3.6.0) |
-| Durum yönetimi | [GetX](https://pub.dev/packages/get) (`get: ^4.7.2`) — controller, routing, i18n, reactive state |
-| Backend iletişimi | `http` paketi, özel `CallApi` servisi |
-| Bildirimler | `firebase_core`, `firebase_messaging`, `flutter_local_notifications` |
-| Yerel depolama | `get_storage` (oturum/token, dil tercihi) |
-| Görsel | `cached_network_image`, `flutter_svg`, `lottie`, `image_picker` |
-| Diğer | `share_plus`, `url_launcher`, `flutter_inappwebview` |
-| İkon seti | `hugeicons` |
-| Yazı tipi | Gilroy (custom font) |
+## Run and check
 
-## Proje yapısı
-
-```
-lib/
-├── core/
-│   ├── lang/            # tk/ru çeviriler (GetX Translations)
-│   ├── services/        # API client, auth storage, catalog service, FCM
-│   ├── theme/           # renkler, tema
-│   └── utils/
-├── modules/
-│   ├── auth/            # login, telefon+OTP kayıt
-│   ├── home/             # ana sayfa
-│   ├── category/         # kategori & marka listeleme
-│   ├── brands/
-│   ├── product_detail/   # ürün detay ekranı
-│   ├── favorites/        # favoriler
-│   ├── search/            # arama
-│   ├── orders/            # sepet, checkout, sipariş geçmişi
-│   ├── profile/
-│   ├── main/              # bottom nav bar, ana Scaffold, paylaşılan controller'lar
-│   └── splash/
-└── widgets/               # ProductCard, AnimatedBottomNavBar, sepete uçma animasyonu vb. paylaşılan bileşenler
-```
-
-Her modül genelde `views/`, `controllers/`, `bindings/` (ve gerekirse `models/`) alt klasörlerine sahip — GetX'in standart modüler yapısı izleniyor.
-
-## Kurulum
-
-```bash
-flutter pub get
+```sh
+flutter pub get --enforce-lockfile
 flutter run
+dart format --output=none --set-exit-if-changed lib test
+flutter analyze --no-pub
+flutter test --no-pub
+flutter build apk --release --no-pub
+flutter build ios --no-codesign --release --no-pub  # macOS only; no installable IPA
 ```
 
-Firebase yapılandırması `lib/firebase_options.dart` içinde tanımlı (FlutterFire CLI ile üretilmiştir); yeni bir Firebase projesine bağlamak için `flutterfire configure` komutu tekrar çalıştırılmalı.
+The Android release build is unsigned unless a local `android/key.properties` points to the verified Atlas signing key. See [`android/key.properties.example`](android/key.properties.example). Keep the keystore and passwords outside Git. Never publish a debug-signed APK. A repository push does not update Google Play.
+
+See [release readiness](docs/release-readiness.md) for the remaining signing, device, and store checks.

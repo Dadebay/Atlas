@@ -157,9 +157,9 @@ class CartScreen extends GetView<CartController> {
       BuildContext context, int index, Map<String, dynamic> item) {
     final title = item['title'] ?? '';
     final image = item['imageUrl'] ?? '';
-    final price = (item['price'] as num?)?.toDouble() ?? 0.0;
+    final price = (item['price'] as num?)?.toDouble();
     final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
-    final totalLine = price * quantity;
+    final totalLine = price == null ? null : price * quantity;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -273,7 +273,7 @@ class CartScreen extends GetView<CartController> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${price.toStringAsFixed(0)} TMT × $quantity',
+                            '${price?.toStringAsFixed(0) ?? '—'} TMT × $quantity',
                             style: const TextStyle(
                               fontSize: 13,
                               color: Colors.black45,
@@ -282,7 +282,7 @@ class CartScreen extends GetView<CartController> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${totalLine.toStringAsFixed(0)} TMT',
+                            '${totalLine?.toStringAsFixed(0) ?? '—'} TMT',
                             style: const TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 18,
@@ -399,7 +399,7 @@ class CartScreen extends GetView<CartController> {
                     ],
                   ),
                   Obx(() => Text(
-                        '${controller.totalPrice.toStringAsFixed(0)} TMT',
+                        '${controller.totalPrice?.toStringAsFixed(0) ?? '—'} TMT',
                         style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
